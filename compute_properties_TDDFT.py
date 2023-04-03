@@ -35,8 +35,8 @@ def getGlobals():
     #eta_list = np.arange( 0.0, 0.2+0.001, 0.001 ) # For spectra
     eta_list = np.arange( 0.0, 0.2+0.05, 0.05 ) # For orbitals
     Neta = len(eta_list)
-    wc = 4.0871   # eV
-    Nad = 100
+    wc = 3.00   # eV
+    Nad = 50
     #NPolCompute = Nad # For spectra
     NPolCompute = 4 # For Orbitals
     QGrid = np.arange( -20, 20, 0.2 )
@@ -78,7 +78,7 @@ def get_TD_fast_1r( Upol, TD_matter, NPolCompute ):
                 for state_j in range( Nad+1 ):               # Matter
                     polIND1 = state_j * NFock  + n           # Only all | 0,n > basis here
                     for state_k in range( Nad+1 ):           # Matter
-                        if ( state_j == state_k or state_j == 0 or state_k == 0 ):
+                        if ( state_j == state_k or state_j == 0 or state_k == 0 ): # We only have 0-->k and k-->k densities !!!!
                             polIND2 = state_k * NFock  + n       # Including all | S,n > basis here
                             TD_pol[etaIND,a,:] += Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a] * TD_matter[state_j,state_k,:,:,:].flatten()
                             if ( Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a] > 1e-3 ):
@@ -86,6 +86,42 @@ def get_TD_fast_1r( Upol, TD_matter, NPolCompute ):
                                 sp.call(f"echo ${out} >> data_TD/transition_density_contributions.dat",shell=True)
                                 print( n,state_j,state_k,round(Upol[etaIND,polIND1,0],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a],4) )
     return TD_pol
+
+
+#@jit(nopython=True)
+def get_TDM_fast_1r( Upol, TDM_matter, NPolCompute ):
+    # EXACT:  <P0| TDM(R,R') |Pa> = SUM_{j k n} C_{jn}^(0) C_{kn}^(a) TDM(R,R')_{jk}
+    # Note: We only have T_{0k} matrix elements
+    TDM_pol = np.zeros(( len(Upol), NPolCompute, len(TDM_matter[0,0]) * len(TDM_matter[0,0]) )) # Eta, NPol, NGrid, assuming calculation of P0 to Pa, a = 0,1,2
+    for etaIND in range(Neta):
+        #print (etaIND)
+        for a in range( NPolCompute ):                       # Choose only up to what is needed..
+            for n in range( NFock ):                         # Photons
+                for state_j in range( Nad+1 ):               # Matter
+                    polIND1 = state_j * NFock  + n           # Only all | 0,n > basis here
+                    for state_k in range( Nad+1 ):           # Matter
+                        polIND2 = state_k * NFock  + n       # Including all | S,n > basis here
+                        if ( state_j == 0 or state_k == 0 ): # We only have 0-->k NTOs !!!!
+                            TDM_pol[etaIND,a,:] += Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a] * TDM_matter[state_j,state_k,:,:].flatten()
+    return TDM_pol
+
+
+@jit(nopython=True)
+def get_NTO_fast_1r( Upol, NTO_matter, NPolCompute ):
+    # EXACT:  <P0| TD(R) |Pa> = SUM_{j k n} C_{jn}^(0) C_{kn}^(a) TD(R)_{jk}
+    # Note: We only have T_{00} and T_{0k} matrix elements
+    NTO_pol = np.zeros(( len(Upol), NPolCompute, 2, Nxyz[0]*Nxyz[1]*Nxyz[2] )) # Eta, NPol, NGrid, assuming calculation of P0 to Pa, a = 0,1,2
+    for etaIND in range(Neta):
+        #print (etaIND)
+        for ind in range(2): # HOTO/LUTO
+            for a in range( NPolCompute ):                       # Choose only up to what is needed..
+                for n in range( NFock ):                         # Photons
+                    for state_j in range( Nad+1 ):               # Matter
+                        polIND1 = state_j * NFock  + n           # Only all | 0,n > basis here
+                        for state_k in range( Nad+1 ):           # Matter
+                            polIND2 = state_k * NFock  + n       # Including all | S,n > basis here
+                            NTO_pol[etaIND,a,ind,:] += Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a] * NTO_matter[state_j,state_k,ind,:,:,:].flatten()
+    return NTO_pol
 
 
 def get_diag_density_fast_1r( Upol, TD_matter, NPolCompute ):
@@ -105,7 +141,7 @@ def get_diag_density_fast_1r( Upol, TD_matter, NPolCompute ):
                 for state_j in range( Nad+1 ):               # Matter
                     polIND1 = state_j * NFock  + n           # Only all | j,n > basis here
                     for state_k in range( Nad+1 ):           # Matter
-                        if ( state_j == state_k or state_j == 0 or state_k == 0 ):
+                        if ( state_j == state_k or state_j == 0 or state_k == 0 ): # We only have 0-->k and k-->k densities !!!!
                             polIND2 = state_k * NFock  + n       # Including all | k,n > basis here
                             DIAG_DENSITY[etaIND,a,:] += Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a] * TD_matter[state_j,state_k,:,:,:].flatten()
                             if ( Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a] > 1e-3 ):
@@ -233,16 +269,17 @@ def get_HadMU():
         eta = round( eta_list[j], 8 )
         print ( f"Reading Upol file {j} of {len(eta_list)}" )
         Epol[j,:] = np.loadtxt(f"{data_PF}/Epol_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat")
-        Char[j,:] = np.loadtxt(f"{data_PF}/Char_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat")
+        #Char[j,:] = np.loadtxt(f"{data_PF}/Char_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat")
         #Upol[j,:,:] = np.load(f"data/Upol_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat.npy")
-        Upol[j,:,:] = np.loadtxt(f"{data_PF}/Upol_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat")
+        #Upol[j,:,:] = np.loadtxt(f"{data_PF}/Upol_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat")
+        Upol[j,:,:] = np.load(f"{data_PF}/Upol_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat.npy")
      
     NFock = len( Upol[0,0,:] ) // (Nad+1)
     print (f"NFock = {NFock}")
 
     # Get molecular dipoles
     E_POLARIZATION = np.array([ ( d == 'x' ), ( d == 'y' ), ( d == 'z' ) ])
-    dip_temp = np.loadtxt(f"../TD_DFT/dipole_matrix_E.dat") # 3-column file "i j (Dij)x (Dij)y (Dij)z". File length should be ~ Nad ** 2 from EOM-CCSD or TD-HF calcuation
+    dip_temp = np.loadtxt(f"../TD/dipole_matrix_E.dat") # 3-column file "i j (Dij)x (Dij)y (Dij)z". File length should be ~ Nad ** 2 from EOM-CCSD or TD-HF calcuation
     MU = np.zeros(( Nad + 1, Nad + 1 ))
     for line in dip_temp:
         i = int( line[0] )
@@ -326,6 +363,70 @@ def compute_Electrostatic_Moments( TD, state_j, state_k ):
         print ( "Octopole Tensor\n", op_Q )
         print ( 'Tr[Q] =', np.round( np.sum(op_Q[np.diag_indices(3)]) ,4) )
 
+
+
+def get_NTO_Data():
+    """
+    NOTE: WE ARE ONLY CALCULATING S0 to Sk NTOs. IN PRINCIPLE, WE NEED ALL TERMS.
+    """
+
+    print ("\tStarting to Read NTO Files.")
+
+    # Get size from first TD file
+    global NAtoms, NGrid, Nxyz, dLxyz, Lxyz, coords
+    header = np.array([ np.array(j.split()) for j in open(f"TDMat/S_1.HOTO.cube","r").readlines()[1:6] ])
+    NAtoms = abs(int(header[1][0]))
+    Nxyz   = np.array([ header[2+j][0] for j in range(3) ]).astype(int)
+    NGrid  = Nxyz[0]*Nxyz[1]*Nxyz[2]
+    dLxyz  = np.array([header[2][1],header[3][2],header[4][3] ]).astype(float)
+    Lxyz   = np.array([ header[1][1], header[1][2], header[1][3] ]).astype(float)
+    if ( Lxyz[0] < 0 ): 
+        Lxyz *= -1.000 # Switch Sign, Already Angstroms
+        #dLxyz *= -1.000 # Switch Sign, Already Angstroms
+    elif ( Lxyz[0] > 0 ): 
+        Lxyz *= 0.529 # Convert from Bohr to Angstroms
+        dLxyz *= 0.529 # Convert from Bohr to Angstroms
+    Vol    = Lxyz[0] * Lxyz[1] * Lxyz[2]
+    
+
+    print (f'\tNAtoms   = {NAtoms}')
+    print (f'\tTD Grid  = {NGrid}')
+    print (f'\tNx Ny Nz = {Nxyz[0]} {Nxyz[1]} {Nxyz[2]}')
+    print (f'\tLx Ly Lz = {Lxyz[0]} {Lxyz[1]} {Lxyz[2]} A')
+    print (f'\tdLx dLy dLz = {dLxyz[0]} {dLxyz[1]} {dLxyz[2]} A')
+    print (f'\tVolume   = {Vol} A^3')
+
+    NStart = NAtoms + 6 + 1 # Extra 1 for NTOS
+
+    coords = np.array([ j for j in open(f"TDMat/S_1.HOTO.cube","r").readlines()[6:NStart] ])
+
+
+    NTO = np.zeros(( Nad+1, Nad+1, 2, Nxyz[0], Nxyz[1], Nxyz[2]  )) # 2 for HOTO/LUTO
+    print(f"\tMemory size of transition density array in (MB, GB): ({round(NTO.size * NTO.itemsize * 10 ** -6,2)},{round(NTO.size * NTO.itemsize * 10 ** -9,2)})" )
+    for state_j in range(1,Nad+1):
+        print(f"\tReading NTO {state_j}")
+        for ind,eh in enumerate(['HOTO','LUTO']):
+            temp = []
+            try:
+                lines = open(f"TDMat//S_{state_j}.{eh}.cube",'r').readlines()[NStart:]
+            except FileNotFoundError:
+                print (f'\t****** File "S_{state_j}.{eh}.cube" not found. Skipping this matrix element. ******')
+                continue
+            for count, line in enumerate(lines):
+                t = line.split('\n')[0].split()
+                for j in range(len(t)):
+                    temp.append( float(t[j]) )
+            NTO[0,state_j,ind,:,:,:] = np.array( temp ).reshape(( Nxyz[0],Nxyz[1],Nxyz[2] ))
+            NTO[state_j,0,ind,:,:,:] = 1.00 * NTO[0,state_j,ind,:,:,:] # SHOULD THIS SYMMETRIC, RIGHT ???               
+
+            #print( state_j, eh, f"../TD-DFT/NTOs/S_{state_j}.{eh}.cube" , np.max( NTO[0,j,ind] ), NTO[0,j,ind,Nxyz[0]//2,Nxyz[1]//2,Nxyz[2]//2] )
+    print("I FINISHED READING NTOs.")
+    #plt.plot( np.arange(Nxyz[0]), np.sum( NTO[0,1,0,:,:,:], axis=(1,2) ) )
+    #plt.savefig('NTO_HOTO_0_1.jpg',dpi=300)
+    #plt.clf()
+
+    return NTO
+
 def get_TD_Data():
     """
     NOTE: WE ARE ONLY CALCULATING S0 to Sk TRANSITION DENSITY. IN PRINCIPLE, WE NEED ALL TERMS.
@@ -383,9 +484,36 @@ def get_TD_Data():
                 print("ZEROS")
                 exit()                  
                     
-
-
     return TD
+
+
+def get_TDM_Data():
+    """
+    Read Fragmented hgfdsTDM generated by Multiwfn.
+    """
+    #NFrags = int( len( np.loadtxt(f'TDMat/tmat_G_S1.txt') ) ** (1/2) )
+    NFrags = int( len( np.loadtxt(f'TDMat/tmat_G_S1.txt') ) ** (1/2) )
+    TDM = np.zeros(( Nad+1,Nad+1, NFrags, NFrags ))
+    for j in range( 1,Nad+1 ):
+        try:
+            #TDM[0,j,:,:] = np.loadtxt(f'TDMat/tmat_G_S{j}.txt')[:,2].reshape(( NFrags, NFrags )) # CHECK TO MAKE SURE THIS GETS IT RIGHT
+            TDM[0,j,:,:] = np.loadtxt(f'TDMat/tmat_G_S{j}.txt')[:,2].reshape(( NFrags, NFrags )) # CHECK TO MAKE SURE THIS GETS IT RIGHT
+            TDM[j,0,:,:] = TDM[0,j,:,:]
+            #print( np.shape(TDM[j,0,:,:].flatten()), NFrags )
+        except OSError:
+            print(f"\t\t**** tmat_G_S{j}.txt NOT FOUND ****")
+            continue
+
+        """
+        print( f"Plotting original TDM for transition {j}." )
+        plt.imshow( TDM[0,j,:,:] , origin='lower' )
+        plt.xlabel( r"Hole ($\AA$)" ,fontsize=15)
+        plt.ylabel( r"Electron ($\AA$)" ,fontsize=15)
+        plt.title( r"TDM $S_0 \rightarrow S_{}$".format(j) ,fontsize=15)
+        plt.savefig(f"data_TD/TDM_0_{j}.jpg",dpi=300)
+        plt.clf()
+        """
+    return TDM
 
 def getExansion(Upol):
 
@@ -565,6 +693,61 @@ def compute_Transition_density_1r( Upol, TD_matter ):
 
     #plot_TD( TD_matter, TD_pol )
 
+
+def compute_Transition_density_matrix_1r( Upol, TDM_matter ):
+    TDM_pol = get_TDM_fast_1r( Upol, TDM_matter, NPolCompute ).reshape(( len(Upol), NPolCompute, len(TDM_matter[0,0]), len(TDM_matter[0,0]) ))
+
+    for etaIND in range( len(eta_list) ):
+        for p in range( NPolCompute ):
+            print( f"Plotting and printing polaritonic TDM for transition {p}." )
+            np.savetxt(f'data_TD/TDM_P_0_{p}_eta{eta_list[etaIND]}.dat', TDM_pol[etaIND,p,:,:], header=r"TDM $P_0$ --> $P_{}$ $A_0$ = {} a.u.".format(p,eta_list[etaIND]) )
+            plt.imshow( np.abs( TDM_pol[etaIND,p,:,:] ) , origin='lower', vmin=0, vmax=1.0 )
+            plt.xlabel( r"Electron ($\AA$)" ,fontsize=15)
+            plt.ylabel( r"Hole ($\AA$)" ,fontsize=15)
+            plt.title( r"TDM $P_0$ $\rightarrow$ $P_{}$,   $A_0$ = {}  a.u.".format(p,eta_list[etaIND]) ,fontsize=15)
+            plt.colorbar(pad=0.01)
+            plt.savefig(f"data_TD/TDM_P_0_{p}_eta{eta_list[etaIND]}.jpg",dpi=300)
+            plt.clf()
+
+            np.savetxt(f'data_TD/TDM_P_0_{p}_eta{eta_list[etaIND]}_diag.dat', (TDM_pol[etaIND,p])[np.diag_indices(len(TDM_pol[0,0]))], header=r"TDM (DIAG) $P_0$ --> $P_{}$ $A_0$ = {} a.u.".format(p,eta_list[etaIND]) )
+            norm = np.sum( np.abs( (TDM_pol[etaIND,p])[np.diag_indices(len(TDM_pol[0,0]))] ) ** 2 )
+            plt.plot( np.abs( (TDM_pol[etaIND,p])[np.diag_indices(len(TDM_pol[0,0]))] ) ** 2 / norm , "-", c="black" )
+            plt.xlabel( r"R ($X_h = X_e$) Electron ($\AA$)" ,fontsize=15)
+            plt.ylabel( r"$\rho^2$" ,fontsize=15)
+            plt.title( r"TDM $P_0$ $\rightarrow$ $P_{}$,   $A_0$ = {}  a.u.".format(p,eta_list[etaIND]) ,fontsize=15)
+            plt.savefig(f"data_TD/TDM_P_0_{p}_eta{eta_list[etaIND]}_diag.jpg",dpi=300)
+            plt.clf()
+
+def compute_NTO_1r( Upol, NTO_matter ):
+    NTO_pol = get_NTO_fast_1r( Upol, NTO_matter, NPolCompute ).reshape(( len(Upol), NPolCompute, 2, Nxyz[0],Nxyz[1],Nxyz[2] ))
+
+    if ( write_TD_Files == True ):
+        # Print TD Files in Gaussian cube format
+        for p in range(NPolCompute): # p = 1 --> NTO_{01}(R)
+            for etaIND in range(len(eta_list)):
+                for ind,eh in enumerate( ['HOTO','LUTO'] ):
+                    eta = round(eta_list[etaIND],3)
+                    print (f"Writing NTO file. p: 0-->{p}, eta = {eta}")
+                    f = open(f'data_TD/NTO_{eh}_eta{eta}_Nad{Nad}_Nfock{NFock}_P0{p}.cube','w')
+                    f.write(f"P0{p} NTO {eh}\n")
+                    f.write(f"Totally {NGrid} grid points\n")
+                    f.write(f"{NAtoms} -{Lxyz[0]} -{Lxyz[1]} -{Lxyz[2]}\n")
+                    f.write(f"{Nxyz[0]} {dLxyz[0]}  0.000000   0.000000\n")
+                    f.write(f"{Nxyz[1]} 0.000000   {dLxyz[1]} 0.000000\n")
+                    f.write(f"{Nxyz[2]} 0.000000   0.000000   {dLxyz[2]} \n")
+                    for at in range(len(coords)):
+                        f.write( coords[at] )
+                    for x in range(Nxyz[0]):
+                        #print(f'X = {x}')
+                        for y in range(Nxyz[1]):
+                            outArray = []
+                            for z in range(Nxyz[2]):
+                                outArray.append( NTO_pol[etaIND,p,ind,x,y,z] )
+                                if ( len(outArray) % 6 == 0 or z == Nxyz[2]-1 ):
+                                    #outArray.append('\n')
+                                    f.write( " ".join(map( "{:1.5f}".format, outArray )) + "\n" )
+                                    outArray = []
+                    f.close()
 
 def compute_diagonal_density_1r( Upol, TD_matter ):
     DIAG_DENSITY = get_diag_density_fast_1r( Upol, TD_matter, NPolCompute ).reshape(( len(Upol), NPolCompute, Nxyz[0],Nxyz[1],Nxyz[2] ))
@@ -909,17 +1092,26 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
             plt.savefig(f'data_TD/difference_density_{option_names[p]}_eta{eta}_wc{wc}_Nad{Nad}_Nfock{NFock}.jpg',dpi=600)
             plt.clf()
 
+
+
 def main():
     getGlobals()
     Epol, Char, Upol, MU = get_HadMU()
+
+    #### Density Analysis ####
     TDM_matter = get_TD_Data()
     TD_pol_1r    = compute_Transition_density_1r( Upol, TDM_matter )
     #TD_pol_1r1q  = compute_Transition_density_1r1q( Upol, TDM_matter ) 
+    #diag_density = compute_diagonal_density_1r( Upol, TDM_matter )
+    #diff_density = compute_difference_density_1r( TDM_matter, diag_density )
 
-    diag_density = compute_diagonal_density_1r( Upol, TDM_matter )
-    diff_density = compute_difference_density_1r( TDM_matter, diag_density )
+    #### Density Matrix Analysis ####
+    #TDM_matter = get_TDM_Data()
+    #TDM_pol_1r    = compute_Transition_density_matrix_1r( Upol, TDM_matter ) 
 
-
+    #### NTO ANALYSIS ####
+    #NTO_matter = get_NTO_Data()
+    #NTO_pol_1r = compute_NTO_1r( Upol, NTO_matter ) 
 
     #getExansion(Upol)
 
@@ -928,13 +1120,5 @@ def main():
     #plotSpectra(Epol,eff_osc_str,Char)
 
 
-
-    
-    
-    
-    #make_movie()
-
-
 if ( __name__ == '__main__'):
     main()
-
