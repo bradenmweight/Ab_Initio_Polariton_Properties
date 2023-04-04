@@ -33,9 +33,10 @@ def getGlobals():
     global eta_list, wc, Nad, d, NPolCompute, Neta, write_TD_Files, data_PF, print_level
     global CMomFile, DMomFile, QMomFile, QGrid, plotDIM
     #eta_list = np.arange( 0.0, 0.2+0.001, 0.001 ) # For spectra
-    eta_list = np.arange( 0.0, 0.2+0.05, 0.05 ) # For orbitals
+    #eta_list = np.arange( 0.0, 0.02+0.01, 0.01 ) # For orbitals
+    eta_list = np.array( [0.0, 0.01, 0.02, 0.03, 0.04, 0.05] ) # For orbitals
     Neta = len(eta_list)
-    wc = 3.00   # eV
+    wc = 6.2   # eV
     Nad = 50
     #NPolCompute = Nad # For spectra
     NPolCompute = 4 # For Orbitals
@@ -66,14 +67,14 @@ def getGlobals():
 def get_TD_fast_1r( Upol, TD_matter, NPolCompute ):
     # EXACT:  <P0| TD(R) |Pa> = SUM_{j k n} C_{jn}^(0) C_{kn}^(a) TD(R)_{jk}
     # Note: We only have T_{00} and T_{0k} matrix elements
-    sp.call("rm data_TD/transition_density_contributions.dat",shell=True)
+    sp.call(f"rm data_TD/transition_density_contributions_WC{wc}.dat",shell=True)
     TD_pol = np.zeros(( len(Upol), NPolCompute, Nxyz[0]*Nxyz[1]*Nxyz[2] )) # Eta, NPol, NGrid, assuming calculation of P0 to Pa, a = 0,1,2
     for etaIND in range(Neta):
         print(f"Working on TD for A0: {etaIND+1} of {Neta}")
         for a in range( NPolCompute ):                       # Choose only up to what is needed..
             print(f"Working on TD for POL: {a+1} of {NPolCompute}")
-            sp.call(f'''echo "Non-zero contributions to transition Density for state P{a} for A0 = {round(eta_list[etaIND],3)}:" >> data_TD/transition_density_contributions.dat''',shell=True)
-            sp.call('''echo "n, j, k, C_{jn}^p, C_{kn}^p, C_{jn}^p * C_{kn}^p" >> data_TD/transition_density_contributions.dat''',shell=True)
+            sp.call(f'''echo "Non-zero contributions to transition Density for state P{a} for A0 = {round(eta_list[etaIND],3)}:" >> data_TD/transition_density_contributions_WC{wc}.dat''',shell=True)
+            sp.call('''echo "n, j, k, C_{jn}^p, C_{kn}^p, C_{jn}^p * C_{kn}^p" >> data_TD/transition_density_contributions_WC{wc}.dat''',shell=True)
             for n in range( NFock ):                         # Photons
                 for state_j in range( Nad+1 ):               # Matter
                     polIND1 = state_j * NFock  + n           # Only all | 0,n > basis here
@@ -82,9 +83,14 @@ def get_TD_fast_1r( Upol, TD_matter, NPolCompute ):
                             polIND2 = state_k * NFock  + n       # Including all | S,n > basis here
                             TD_pol[etaIND,a,:] += Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a] * TD_matter[state_j,state_k,:,:,:].flatten()
                             if ( Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a] > 1e-3 ):
-                                out = f"\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,0],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a],4)]))
-                                sp.call(f"echo ${out} >> data_TD/transition_density_contributions.dat",shell=True)
+                                out = "\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,0],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a],4)]))
+                                sp.call(f"echo ${out} >> data_TD/transition_density_contributions_WC{wc}.dat",shell=True)
                                 print( n,state_j,state_k,round(Upol[etaIND,polIND1,0],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a],4) )
+                        else:
+                            if ( Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a] > 0.01 ): # Tell if missing > 1%
+                                out = "MISSING!!!\t" + "\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4)]))
+                                sp.call(f"echo ${out} >> data_TD/transition_density_contributions_WC{wc}.dat",shell=True)
+                                print( "MISSING!!!",n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4) )
     return TD_pol
 
 
@@ -127,27 +133,33 @@ def get_NTO_fast_1r( Upol, NTO_matter, NPolCompute ):
 def get_diag_density_fast_1r( Upol, TD_matter, NPolCompute ):
     # EXACT:  <Pa| TD(R) |Pa> = SUM_{j k n} C_{jn}^(a) C_{kn}^(a) TD(R)_{jk}
     # Note: We only have T_{kk} and T_{0k} matrix elements
-    sp.call("rm data_TD/diagonal_density_contributions.dat",shell=True)
+    sp.call(f"rm data_TD/diagonal_density_contributions_WC{wc}.dat",shell=True)
     
     DIAG_DENSITY = np.zeros(( len(Upol), NPolCompute, Nxyz[0]*Nxyz[1]*Nxyz[2] )) # Eta, NPol, NGrid, assuming calculation of P0 to Pa, a = 0,1,2
     for etaIND in range(Neta):
         print(f"Diagonal Density (A0 = {round(eta_list[etaIND],3)})")
         for a in range( NPolCompute ):                       # Choose only up to what is needed..
             print(f"Non-zero contributions to diagonal Density for state P{a}:")
-            print("n, j, k, C_{jn}^p, C_{kn}^p, C_{jn}^p * C_{kn}^p")
-            sp.call(f'''echo "Non-zero contributions to diagonal Density for state P{a} for A0 = {round(eta_list[etaIND],3)}:" >> data_TD/diagonal_density_contributions.dat''',shell=True)
-            sp.call('''echo "n, j, k, C_{jn}^p, C_{kn}^p, C_{jn}^p * C_{kn}^p" >> data_TD/diagonal_density_contributions.dat''',shell=True)
+            print("n, j, k, C_{jn}, C_{kn}, P_{jn,kn}")
+            sp.call(f'''echo "Non-zero contributions to diagonal Density for state P{a} for A0 = {round(eta_list[etaIND],3)}:" >> data_TD/diagonal_density_contributions_WC{wc}.dat''',shell=True)
+            sp.call('''echo "n, j, k, C_{jn}, C_{kn}, P_{jn,kn}"''' + f">> data_TD/diagonal_density_contributions_WCwc.dat",shell=True)
             for n in range( NFock ):                         # Photons
                 for state_j in range( Nad+1 ):               # Matter
                     polIND1 = state_j * NFock  + n           # Only all | j,n > basis here
                     for state_k in range( Nad+1 ):           # Matter
+                        polIND2 = state_k * NFock  + n       # Including all | k,n > basis here
                         if ( state_j == state_k or state_j == 0 or state_k == 0 ): # We only have 0-->k and k-->k densities !!!!
-                            polIND2 = state_k * NFock  + n       # Including all | k,n > basis here
                             DIAG_DENSITY[etaIND,a,:] += Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a] * TD_matter[state_j,state_k,:,:,:].flatten()
                             if ( Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a] > 1e-3 ):
-                                out = f"\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4)]))
-                                sp.call(f"echo ${out} >> data_TD/diagonal_density_contributions.dat",shell=True)
+                                out = "\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4)]))
+                                sp.call(f"echo ${out} >> data_TD/diagonal_density_contributions_WC{wc}.dat",shell=True)
                                 print( n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4) )
+                        else:
+                            if ( Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a] > 0.01 ): # Tell if missing > 1%
+                                out = "MISSING!!!    " + "\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4)]))
+                                sp.call(f"echo ${out} >> data_TD/diagonal_density_contributions_WC{wc}.dat",shell=True)
+                                print( "MISSING!!!",n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4) )
+
 
     return DIAG_DENSITY
 
@@ -279,7 +291,7 @@ def get_HadMU():
 
     # Get molecular dipoles
     E_POLARIZATION = np.array([ ( d == 'x' ), ( d == 'y' ), ( d == 'z' ) ])
-    dip_temp = np.loadtxt(f"../TD/dipole_matrix_E.dat") # 3-column file "i j (Dij)x (Dij)y (Dij)z". File length should be ~ Nad ** 2 from EOM-CCSD or TD-HF calcuation
+    dip_temp = np.loadtxt(f"../TD_wB97XD_OPT_GEOM/dipole_matrix_E.dat") # 3-column file "i j (Dij)x (Dij)y (Dij)z". File length should be ~ Nad ** 2 from EOM-CCSD or TD-HF calcuation
     MU = np.zeros(( Nad + 1, Nad + 1 ))
     for line in dip_temp:
         i = int( line[0] )
@@ -446,6 +458,9 @@ def get_TD_Data():
     if ( Lxyz[0] > 0 ): Lxyz *= 0.529 # Convert from Bohr to Angstroms
     Vol    = Lxyz[0] * Lxyz[1] * Lxyz[2]
     
+    # QCHEM EXCITED DENSITIES MAY BE WRONG... THEY FORGET to MULTIPLY BY 2 FOR RESTRICTED DFT...
+    is_QCHEM = False # Let's check this and fix if necessary for correct diagonal density normalization
+    GS_NORM = 0.0 # Compare excited state norms to ground state for the check. If within 1 e-, is probably fine.
 
     print (f'\tNAtoms   = {NAtoms}')
     print (f'\tTD Grid  = {NGrid}')
@@ -478,7 +493,17 @@ def get_TD_Data():
                 TD[state_k,state_j,:,:,:] = 1.00 * TD[state_j,state_k,:,:,:] # SHOULD THIS SYMMETRIC, RIGHT ???
             elif( state_j == state_k ):
                 norm = np.sum( TD[state_j,state_k,:,:,:],axis=(0,1,2) ) * dLxyz[0]*dLxyz[1]*dLxyz[2]
-                TD[state_j,state_k,:,:,:] /= norm # Normalize to 1.0 instead of NELECT
+                if ( state_j == state_k and state_j == 0 ):
+                    GS_NORM = norm * 1.0
+                else:
+                    if ( abs( norm - GS_NORM ) > 0.25 ): # Check within quarter of an electron...
+                        is_QCHEM = True
+                        print("I FOUND QCHEM ERROR ! Multiplying non-ground state densities by factor of 2...")
+                        TD[state_j,state_k,:,:,:] *= 2
+                        norm                      *= 2
+                        #TD[state_j,state_k,:,:,:] /= norm # Normalize to 1.0 instead of NELECT
+
+                print("Skipping diagonal density normalization: norm =", norm)
             compute_Electrostatic_Moments( TD, state_j, state_k ) 
             if ( np.allclose(TD[state_j,state_k,:,:,:],np.zeros((Nxyz[0],Nxyz[1],Nxyz[2]))) ):
                 print("ZEROS")
@@ -669,7 +694,7 @@ def compute_Transition_density_1r( Upol, TD_matter ):
             for etaIND in range(len(eta_list)):
                 eta = round(eta_list[etaIND],8)
                 print (f"Writing transition density file. p: 0-->{p}, eta = {eta}")
-                f = open(f'data_TD/trans_eta{eta}_wc{wc}_Nad{Nad}_Nfock{NFock}_P0{p}.cube','w')
+                f = open(f'data_TD/trans_A0{eta}_WC{wc}_Nad{Nad}_Nfock{NFock}_P0{p}.cube','w')
                 f.write(f"P0{1} Transition Density\n")
                 f.write(f"Totally {NGrid} grid points\n")
                 f.write(f"{NAtoms} {-Lxyz[0]/0.529} {-Lxyz[1]/0.529} {-Lxyz[2]/0.529}\n")
@@ -728,7 +753,7 @@ def compute_NTO_1r( Upol, NTO_matter ):
                 for ind,eh in enumerate( ['HOTO','LUTO'] ):
                     eta = round(eta_list[etaIND],3)
                     print (f"Writing NTO file. p: 0-->{p}, eta = {eta}")
-                    f = open(f'data_TD/NTO_{eh}_eta{eta}_Nad{Nad}_Nfock{NFock}_P0{p}.cube','w')
+                    f = open(f'data_TD/NTO_{eh}_A0{eta}_WC{wc}_Nad{Nad}_Nfock{NFock}_P0{p}.cube','w')
                     f.write(f"P0{p} NTO {eh}\n")
                     f.write(f"Totally {NGrid} grid points\n")
                     f.write(f"{NAtoms} -{Lxyz[0]} -{Lxyz[1]} -{Lxyz[2]}\n")
@@ -760,7 +785,7 @@ def compute_diagonal_density_1r( Upol, TD_matter ):
                     print("Warning! Diagonal Density Zero: eta =", eta)
                 eta = round(eta_list[etaIND],8)
                 print (f"Writing diagonal density file. p: {p}-->{p}, eta = {eta}")
-                f = open(f'data_TD/diagonal_density_eta{eta}_wc{wc}_Nad{Nad}_Nfock{NFock}_P{p}{p}.cube','w')
+                f = open(f'data_TD/diagonal_density_A0{eta}_WC{wc}_Nad{Nad}_Nfock{NFock}_P{p}{p}.cube','w')
                 f.write(f"P{p}{p} Diagonal Density\n")
                 f.write(f"Totally {NGrid} grid points\n")
                 f.write(f"{NAtoms} {-Lxyz[0]/0.529} {-Lxyz[1]/0.529} {-Lxyz[2]/0.529}\n")
@@ -1089,7 +1114,7 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
             plt.ylabel(f"Difference Density",fontsize=15)
             plt.title(f"Density Type: {option_names[p]}",fontsize=15)
             plt.tight_layout()
-            plt.savefig(f'data_TD/difference_density_{option_names[p]}_eta{eta}_wc{wc}_Nad{Nad}_Nfock{NFock}.jpg',dpi=600)
+            plt.savefig(f'data_TD/difference_density_{option_names[p]}_wc{wc}_Nad{Nad}_Nfock{NFock}.jpg',dpi=600)
             plt.clf()
 
 
@@ -1100,10 +1125,10 @@ def main():
 
     #### Density Analysis ####
     TDM_matter = get_TD_Data()
-    TD_pol_1r    = compute_Transition_density_1r( Upol, TDM_matter )
+    #TD_pol_1r    = compute_Transition_density_1r( Upol, TDM_matter )
     #TD_pol_1r1q  = compute_Transition_density_1r1q( Upol, TDM_matter ) 
-    #diag_density = compute_diagonal_density_1r( Upol, TDM_matter )
-    #diff_density = compute_difference_density_1r( TDM_matter, diag_density )
+    diag_density = compute_diagonal_density_1r( Upol, TDM_matter )
+    diff_density = compute_difference_density_1r( TDM_matter, diag_density )
 
     #### Density Matrix Analysis ####
     #TDM_matter = get_TDM_Data()
@@ -1120,5 +1145,8 @@ def main():
     #plotSpectra(Epol,eff_osc_str,Char)
 
 
+
+
 if ( __name__ == '__main__'):
     main()
+
