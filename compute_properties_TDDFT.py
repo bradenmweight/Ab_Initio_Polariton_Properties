@@ -74,7 +74,7 @@ def get_TD_fast_1r( Upol, TD_matter, NPolCompute ):
         for a in range( NPolCompute ):                       # Choose only up to what is needed..
             print(f"Working on TD for POL: {a+1} of {NPolCompute}")
             sp.call(f'''echo "Non-zero contributions to transition Density for state P{a} for A0 = {round(eta_list[etaIND],3)}:" >> data_TD/transition_density_contributions_WC{wc}.dat''',shell=True)
-            sp.call('''echo "n, j, k, C_{jn}^p, C_{kn}^p, C_{jn}^p * C_{kn}^p" >> data_TD/transition_density_contributions_WC{wc}.dat''',shell=True)
+            sp.call('''echo "n, j, k, C_{jn}^p, C_{kn}^p, C_{jn}^p * C_{kn}^p"''' + f">> data_TD/transition_density_contributions_WC{wc}.dat",shell=True)
             for n in range( NFock ):                         # Photons
                 for state_j in range( Nad+1 ):               # Matter
                     polIND1 = state_j * NFock  + n           # Only all | 0,n > basis here
@@ -84,12 +84,12 @@ def get_TD_fast_1r( Upol, TD_matter, NPolCompute ):
                             TD_pol[etaIND,a,:] += Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a] * TD_matter[state_j,state_k,:,:,:].flatten()
                             if ( Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a] > 1e-3 ):
                                 out = "\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,0],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a],4)]))
-                                sp.call(f"echo ${out} >> data_TD/transition_density_contributions_WC{wc}.dat",shell=True)
+                                sp.call(f"echo {out} >> data_TD/transition_density_contributions_WC{wc}.dat",shell=True)
                                 print( n,state_j,state_k,round(Upol[etaIND,polIND1,0],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,0] * Upol[etaIND,polIND2,a],4) )
                         else:
                             if ( Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a] > 0.01 ): # Tell if missing > 1%
-                                out = "MISSING!!!\t" + "\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4)]))
-                                sp.call(f"echo ${out} >> data_TD/transition_density_contributions_WC{wc}.dat",shell=True)
+                                out = "MISSING\t" + "\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4)]))
+                                sp.call(f"echo {out} >> data_TD/transition_density_contributions_WC{wc}.dat",shell=True)
                                 print( "MISSING!!!",n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4) )
     return TD_pol
 
@@ -142,7 +142,7 @@ def get_diag_density_fast_1r( Upol, TD_matter, NPolCompute ):
             print(f"Non-zero contributions to diagonal Density for state P{a}:")
             print("n, j, k, C_{jn}, C_{kn}, P_{jn,kn}")
             sp.call(f'''echo "Non-zero contributions to diagonal Density for state P{a} for A0 = {round(eta_list[etaIND],3)}:" >> data_TD/diagonal_density_contributions_WC{wc}.dat''',shell=True)
-            sp.call('''echo "n, j, k, C_{jn}, C_{kn}, P_{jn,kn}"''' + f">> data_TD/diagonal_density_contributions_WCwc.dat",shell=True)
+            sp.call('''echo "n, j, k, C_{jn}, C_{kn}, P_{jn,kn}"''' + f">> data_TD/diagonal_density_contributions_WC{wc}.dat",shell=True)
             for n in range( NFock ):                         # Photons
                 for state_j in range( Nad+1 ):               # Matter
                     polIND1 = state_j * NFock  + n           # Only all | j,n > basis here
@@ -152,12 +152,12 @@ def get_diag_density_fast_1r( Upol, TD_matter, NPolCompute ):
                             DIAG_DENSITY[etaIND,a,:] += Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a] * TD_matter[state_j,state_k,:,:,:].flatten()
                             if ( Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a] > 1e-3 ):
                                 out = "\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4)]))
-                                sp.call(f"echo ${out} >> data_TD/diagonal_density_contributions_WC{wc}.dat",shell=True)
+                                sp.call(f"echo {out} >> data_TD/diagonal_density_contributions_WC{wc}.dat",shell=True)
                                 print( n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4) )
                         else:
                             if ( Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a] > 0.01 ): # Tell if missing > 1%
-                                out = "MISSING!!!    " + "\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4)]))
-                                sp.call(f"echo ${out} >> data_TD/diagonal_density_contributions_WC{wc}.dat",shell=True)
+                                out = "\t".join(map(str,[n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4)]))
+                                sp.call(f"echo ' MISSING: {out}' >> data_TD/diagonal_density_contributions_WC{wc}.dat",shell=True)
                                 print( "MISSING!!!",n,state_j,state_k,round(Upol[etaIND,polIND1,a],4), round(Upol[etaIND,polIND2,a],4), round(Upol[etaIND,polIND1,a] * Upol[etaIND,polIND2,a],4) )
 
 
@@ -501,14 +501,20 @@ def get_TD_Data():
                         print("I FOUND QCHEM ERROR ! Multiplying non-ground state densities by factor of 2...")
                         TD[state_j,state_k,:,:,:] *= 2
                         norm                      *= 2
+                        print("Skipping diagonal density normalization: norm =", norm)
+                        if ( norm == GS_NORM ):
+                            print("Total electrons are still broken...QCHEM + grid data issue ?")
+                            exit()
                         #TD[state_j,state_k,:,:,:] /= norm # Normalize to 1.0 instead of NELECT
+                        #print("Performing normalization of the diagonal density: norm =", norm)
 
-                print("Skipping diagonal density normalization: norm =", norm)
+
             compute_Electrostatic_Moments( TD, state_j, state_k ) 
             if ( np.allclose(TD[state_j,state_k,:,:,:],np.zeros((Nxyz[0],Nxyz[1],Nxyz[2]))) ):
                 print("ZEROS")
                 exit()                  
-                    
+
+
     return TD
 
 
@@ -1144,9 +1150,7 @@ def main():
     #eff_osc_str = getOscStr(Epol,eff_dipole_1)
     #plotSpectra(Epol,eff_osc_str,Char)
 
-
-
-
 if ( __name__ == '__main__'):
     main()
+
 
