@@ -31,12 +31,13 @@ make install exec_prefix=$(pwd) prefix=$(pwd) datarootdir=$(pwd)
 
 def getGlobals():
     global eta_list, wc, Nad, d, NPolCompute, Neta, write_TD_Files, data_PF, print_level
-    global CMomFile, DMomFile, QMomFile, QGrid, plotDIM
+    global CMomFile, DMomFile, QMomFile, QGrid, plotDIM, plotDIM2D
     #eta_list = np.arange( 0.0, 0.2+0.001, 0.001 ) # For spectra
     #eta_list = np.arange( 0.0, 0.02+0.01, 0.01 ) # For orbitals
-    eta_list = np.array( [0.0, 0.01, 0.02, 0.03, 0.04, 0.05] ) # For orbitals
+    eta_list = np.array( [0.0, 0.05, 0.1, 0.15, 0.2, 0.5] ) # For orbitals
+    #eta_list = np.array( [0.5] ) # For orbitals
     Neta = len(eta_list)
-    wc = 6.2   # eV
+    wc = 9.0   # eV
     Nad = 50
     #NPolCompute = Nad # For spectra
     NPolCompute = 4 # For Orbitals
@@ -44,7 +45,8 @@ def getGlobals():
     write_TD_Files = True
     print_level = 0 # 0 = Minimal, 1 = Some, 2 = Debugging
     d = 'x'
-    plotDIM = 'x' # Dimension for plotting 2D transition density
+    plotDIM   = 'x' # Dimension for plotting 2D transition density
+    plotDIM2D = (0,1) # Plotting these two dimensions as heatmap/contour
     data_PF = "data_PF"
     sp.call('mkdir -p data_expansion',shell=True)
     sp.call('mkdir -p data_dipole',shell=True)
@@ -269,6 +271,55 @@ def trace_ad( Upol ):
                     Upol_fock[ :, polIND1, npp ] += Upol[ :, polIND2, polIND1 ] ** 2 # (g,0), (g,1), ..., (e,0), (e,1), ..., 
     return Upol_fock
 
+
+def plot_dipole( MU ):
+
+    # Get max and round to nearest 0.5
+    MU1_MAX = np.max( np.abs(MU) )
+    MU1_MAX = round( MU1_MAX*5 )/5
+
+    # Get max and round to nearest 10
+    MU2_MAX = np.max( np.abs(MU @ MU) )
+    MU2_MAX = round( MU2_MAX*10 )/10
+
+    # Plot dipole matrix
+    np.savetxt(f"data_TD/DIPOLE_MATRIX.dat", np.abs(MU))
+    plt.imshow( np.abs(MU), origin='lower', cmap='afmhot_r', vmin=0.0, vmax=MU1_MAX )
+    plt.colorbar(pad=0.01)
+    plt.savefig(f"data_TD/DIPOLE_MATRIX.jpg",dpi=600)
+    plt.clf()
+
+    # Plot dipole matrix squared (0-J elements)
+    np.savetxt(f"data_TD/DIPOLE_MATRIX_0J.dat", np.abs(MU)[0,:] )
+    #plt.semilogy( np.abs(MU)[0,:], "o", c="black", lw=4, label="$|\hat{\mu}_{0\\alpha}|$" )
+    plt.stem( np.abs(MU)[0,:] )
+    plt.legend()
+    plt.ylim(0.01)
+    plt.xlabel("Electronic State $\\alpha$",fontsize=15)
+    plt.ylabel("Dipole Matrix, $|\mu_{0\\alpha}|$ (a.u.)",fontsize=15)
+    plt.savefig(f"data_TD/DIPOLE_MATRIX_0J.jpg",dpi=600)
+    plt.clf()
+
+    # Plot dipole matrix squared
+    np.savetxt(f"data_TD/DIPOLE_MATRIX_SQUARED.dat", np.abs(MU @ MU))
+    plt.imshow( np.abs(MU @ MU), origin='lower', cmap='afmhot_r', vmin=0.0, vmax=MU2_MAX )
+    plt.colorbar(pad=0.01)
+    plt.savefig(f"data_TD/DIPOLE_MATRIX_SQUARED.jpg",dpi=600)
+    plt.clf()
+
+    
+    # Plot dipole matrix squared (0-J elements)
+    np.savetxt(f"data_TD/DIPOLE_MATRIX_SQUARED_0J.dat", np.abs(MU @ MU)[0,:] )
+    #plt.semilogy( np.abs(MU @ MU)[0,:], "-o", c="black", lw=4 )
+    plt.stem( np.abs(MU @ MU)[0,:] )
+    plt.legend()
+    plt.ylim(0.01)
+    plt.xlabel("Electronic State $\\alpha$",fontsize=15)
+    plt.ylabel("Square Dipole Matrix, $|(\hat{\mu}^2)_{0\\alpha}|$ (a.u.)",fontsize=15)
+    plt.savefig(f"data_TD/DIPOLE_MATRIX_SQUARED_0J.jpg",dpi=600)
+    plt.clf()
+
+
 def get_HadMU():
     global NFock, NPolar
 
@@ -282,16 +333,15 @@ def get_HadMU():
         print ( f"Reading Upol file {j} of {len(eta_list)}" )
         Epol[j,:] = np.loadtxt(f"{data_PF}/Epol_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat")
         #Char[j,:] = np.loadtxt(f"{data_PF}/Char_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat")
-        #Upol[j,:,:] = np.load(f"data/Upol_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat.npy")
-        #Upol[j,:,:] = np.loadtxt(f"{data_PF}/Upol_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat")
-        Upol[j,:,:] = np.load(f"{data_PF}/Upol_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat.npy")
+        Upol[j,:,:] = np.loadtxt(f"{data_PF}/Upol_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat")
+        #Upol[j,:,:] = np.load(f"{data_PF}/Upol_E{d}_eta{eta}_wc{wc}_Nad{Nad}.dat.npy")
      
     NFock = len( Upol[0,0,:] ) // (Nad+1)
     print (f"NFock = {NFock}")
 
     # Get molecular dipoles
     E_POLARIZATION = np.array([ ( d == 'x' ), ( d == 'y' ), ( d == 'z' ) ])
-    dip_temp = np.loadtxt(f"../TD_wB97XD_OPT_GEOM/dipole_matrix_E.dat") # 3-column file "i j (Dij)x (Dij)y (Dij)z". File length should be ~ Nad ** 2 from EOM-CCSD or TD-HF calcuation
+    dip_temp = np.loadtxt(f"../TD/dipole_matrix_E.dat") # 3-column file "i j (Dij)x (Dij)y (Dij)z". File length should be ~ Nad ** 2 from EOM-CCSD or TD-HF calcuation
     MU = np.zeros(( Nad + 1, Nad + 1 ))
     for line in dip_temp:
         i = int( line[0] )
@@ -302,6 +352,8 @@ def get_HadMU():
         MU[j,i] = MU[i,j]
     
     assert( NPolCompute <= len(Upol[0]) ), "Number of requested polaritons to compute is larger than the number of polaritons."
+
+    plot_dipole(MU)
 
     return Epol, Char, Upol, MU
 
@@ -420,7 +472,7 @@ def get_NTO_Data():
         for ind,eh in enumerate(['HOTO','LUTO']):
             temp = []
             try:
-                lines = open(f"TDMat//S_{state_j}.{eh}.cube",'r').readlines()[NStart:]
+                lines = open(f"TDMat/S_{state_j}.{eh}.cube",'r').readlines()[NStart:]
             except FileNotFoundError:
                 print (f'\t****** File "S_{state_j}.{eh}.cube" not found. Skipping this matrix element. ******')
                 continue
@@ -431,7 +483,7 @@ def get_NTO_Data():
             NTO[0,state_j,ind,:,:,:] = np.array( temp ).reshape(( Nxyz[0],Nxyz[1],Nxyz[2] ))
             NTO[state_j,0,ind,:,:,:] = 1.00 * NTO[0,state_j,ind,:,:,:] # SHOULD THIS SYMMETRIC, RIGHT ???               
 
-            #print( state_j, eh, f"../TD-DFT/NTOs/S_{state_j}.{eh}.cube" , np.max( NTO[0,j,ind] ), NTO[0,j,ind,Nxyz[0]//2,Nxyz[1]//2,Nxyz[2]//2] )
+            #print( state_j, eh, f"../TD/NTOs/S_{state_j}.{eh}.cube" , np.max( NTO[0,j,ind] ), NTO[0,j,ind,Nxyz[0]//2,Nxyz[1]//2,Nxyz[2]//2] )
     print("I FINISHED READING NTOs.")
     #plt.plot( np.arange(Nxyz[0]), np.sum( NTO[0,1,0,:,:,:], axis=(1,2) ) )
     #plt.savefig('NTO_HOTO_0_1.jpg',dpi=300)
@@ -780,6 +832,44 @@ def compute_NTO_1r( Upol, NTO_matter ):
                                     outArray = []
                     f.close()
 
+def plot_diag_contributions():
+
+    for A0_ind,A0 in enumerate( eta_list ):
+        for state in range( NPolCompute ):
+            A0 = round(A0,4)
+
+            MATTER_CONT = np.zeros(( Nad+1,Nad+1 ))
+            read_flag = False
+
+            lines = open(f"data_TD/diagonal_density_contributions_WC{wc}.dat","r").readlines()
+            for count, line in enumerate( lines ):
+                t = line.split()
+                if ( t[:7] == "Non-zero contributions to diagonal Density for state".split() ):
+                    if ( t[7] == f"P{state}" and t[11] == f"{A0}:" ):
+                        read_flag = True
+                        continue
+                    else:
+                        read_flag = False
+                if ( t[:3] == "n, j, k,".split() ):
+                    continue
+                if ( read_flag == True ):
+                    if ( t[0] == "MISSING:" ):
+                        J = int( t[2] )
+                        K = int( t[3] )
+                        MATTER_CONT[J,K] = float( t[-1] )
+                    else:
+                        n = int( t[0] )
+                        J = int( t[1] )
+                        K = int( t[2] )
+                        MATTER_CONT[J,K] += float( t[-1] )
+
+            np.savetxt(f"data_TD/MATTER_CONTRIBUTIONS_P{state}_A0{A0}_WC{wc}.dat", MATTER_CONT)
+            plt.imshow( MATTER_CONT, origin='lower', cmap='brg', norm=mpl.colors.LogNorm(vmin=0.01, vmax=1.00) )
+            plt.colorbar(pad=0.01)
+            plt.savefig(f"data_TD/MATTER_CONTRIBUTIONS_P{state}_A0{A0}_WC{wc}.jpg",dpi=600)
+            plt.clf()
+
+
 def compute_diagonal_density_1r( Upol, TD_matter ):
     DIAG_DENSITY = get_diag_density_fast_1r( Upol, TD_matter, NPolCompute ).reshape(( len(Upol), NPolCompute, Nxyz[0],Nxyz[1],Nxyz[2] ))
 
@@ -811,6 +901,9 @@ def compute_diagonal_density_1r( Upol, TD_matter ):
                                 f.write( " ".join(map( str, np.round(outArray,8) )) + "\n" )
                                 outArray = []
                 f.close()
+
+
+    plot_diag_contributions()
 
     return DIAG_DENSITY
 
@@ -1079,7 +1172,7 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
 
     plot_ind = 0 * ("x" == plotDIM) + 1 * ("y" == plotDIM) + 2 * ("z" == plotDIM)
     R = np.arange(Nxyz[plot_ind]) * dLxyz[plot_ind] * 0.529 # Bohr --> Angstrom
-    R_fine = np.linspace( R[0], R[-1], 2000 )
+    R_fine = np.linspace( R[0], R[-1], 500 )
 
     if ( write_TD_Files == True ):
         # Print TD Files in Gaussian cube format
@@ -1124,6 +1217,31 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
             plt.clf()
 
 
+            RMIN = 4
+            RMAX = 14            
+            INDS = ( ind for ind,r in enumerate(R_fine) if (r >= RMIN and r <= RMAX) )
+            R_fine_CUT = np.array([ R_fine[ind] for ind in INDS])
+            for etaIND,eta in enumerate(eta_list):
+
+                print(f"Writing the difference density ({option_names[p]}) contour data to a file.")
+                eta = round(eta,5)
+                f = np.sum( DIFF_DENSITY[etaIND,p,:,:,:]*1000, axis=0*((1,2) == plotDIM2D) + 1*((0,2) == plotDIM2D) + 2*((0,1) == plotDIM2D) )
+                f_interp = interp2d(R,R,f,kind='cubic')
+                np.savetxt( f'data_TD/difference_density_contour_{option_names[p]}_eta{eta}_wc{wc}_Nad{Nad}_Nfock{NFock}.dat', f_interp(R_fine_CUT,R_fine_CUT).T )
+                np.savetxt( f'data_TD/difference_density_contour_RGRID_Nad{Nad}_Nfock{NFock}.dat', R_fine_CUT )
+
+                X,Y = np.meshgrid( R_fine_CUT,R_fine_CUT )
+                plt.contourf( X, Y, f_interp(R_fine_CUT,R_fine_CUT), cmap="seismic", levels=200)
+                plt.colorbar(pad=0.01)
+                plt.xlim(RMIN,RMAX)
+                plt.ylim(RMIN,RMAX)
+                plt.xlabel(f"Real-space Position Along '{plotDIM2D[0]}' ($\AA$)",fontsize=15)
+                plt.xlabel(f"Real-space Position Along '{plotDIM2D[1]}' ($\AA$)",fontsize=15)
+                plt.title(f"Difference Density ({option_names[p]}) m|e|/A^2",fontsize=15)
+                plt.tight_layout()
+                plt.savefig(f'data_TD/difference_density_contour_{option_names[p]}_wc{wc}_Nad{Nad}_Nfock{NFock}.jpg',dpi=600)
+                plt.clf()
+
 
 def main():
     getGlobals()
@@ -1152,5 +1270,6 @@ def main():
 
 if ( __name__ == '__main__'):
     main()
+
 
 
