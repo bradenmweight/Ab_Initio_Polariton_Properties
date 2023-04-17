@@ -3,6 +3,9 @@ from numpy import kron as kron_prod
 import sys
 import subprocess as sp
 
+##### Braden M. Weight #####
+#####  April 17, 2023  #####
+
 
 def get_globals():
     global NM, NF, A0, wc_eV, wc_AU

@@ -1,14 +1,24 @@
-# Polaritons
+# ```Ab Initio Polaritons```
 
-The purpose of this repo is to store and manage codes to compute and manipulate polaritonic properties. 
+## Proposed directory structure:
+```
+QCHEM_TD_DFT/
+QCHEM_TD_DFT/PF_NF5_NM10/
+QCHEM_TD_DFT/PF_NF5_NM10/data_PF/
+```
 
-These codes assume electronic structure has already been completed, giving the transition dipole matrix and transition density cube files (Gaussian Format).
+## QCHEM (also can use Gaussian16 with Multiwfn)
+QCHEM.in (Example Input Script to be run in QCHEM_TD_DFT/)
+get_HAM_and_DIP_Matrix.py (to be run in QCHEM_TD_DFT/)
 
-Pauli-Fierz.py:
+## Pauli-Fierz
+Pauli-Fierz_DdotE.py (Example Input Script to be run in QCHEM_TD_DFT/)
 
-Syntax: Pauli-Fierz.py {Single-Mode Cavity Energy} {Coupling Strength}
+## Compute Properties
+compute_properties.py (to be run in QCHEM_TD_DFT/PF_NF5_NM10/)
 
-compute_properties.py:
-Syntax: compute_properties.py
+
+
+
 
 
