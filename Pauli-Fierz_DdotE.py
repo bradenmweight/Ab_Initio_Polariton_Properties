@@ -6,24 +6,27 @@ import subprocess as sp
 ##### Braden M. Weight #####
 #####  April 17, 2023  #####
 
+# SYNTAX: python3 Pauli-Fierz_DdotE.py A0 WC
+
 def get_globals():
     global NM, NF, A0, wc_eV, wc_AU
-    global EVEC_INTS, EVEC_NORM
+    global EVEC_INTS, EVEC_NORM, EVEC_OUT
     global RPA
 
     ##### MAIN USER INPUT SECTION #####
-    NM        = 100    # Number of Electronic States (including ground state)
-    NF        = 5 # Number of Fock Basis States
+    NM        = 50                  # Number of Electronic States (including ground state)
+    NF        = 10                  # Number of Fock Basis States
     EVEC_INTS = np.array([ 1,0,0 ]) # Cavity Polarization Vector (input as integers without normalizing)
-    RPA       = True # Look for TD-DFT/RPA data rather than TD-DFT/TDA data
+    RPA       = True                # If True, look for TD-DFT/RPA data rather than TD-DFT/TDA data
     ##### END USER INPUT SECTION  #####
     
-    ##### DO NOT MODIFY BELIW HERE #####
+    ##### DO NOT MODIFY BELOW HERE #####
     A0    = float( sys.argv[1] ) # a.u.
     wc_eV = float( sys.argv[2] ) # eV
     
     wc_AU     = wc_eV / 27.2114
     EVEC_NORM = EVEC_INTS / np.linalg.norm(EVEC_INTS)
+    EVEC_OUT = "_".join(map(str,EVEC_INTS))
 
     sp.call("mkdir -p data_PF", shell=True)
 
@@ -82,7 +85,6 @@ def SolvePlotandSave(H_PF,EAD,MU):
         E, U = np.linalg.eigh( H_PF ) # This is exact solution --> Should we ever try Davidson diagonalization ?
         
         # Save Data
-        EVEC_OUT = "_".join(map(str,EVEC_INTS))
         np.savetxt( f"data_PF/E_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", E * 27.2114 )
         #np.savetxt( f"data_PF/U_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", U ) # These can be large
         np.save( f"data_PF/U_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", U ) # Binary is smaller
