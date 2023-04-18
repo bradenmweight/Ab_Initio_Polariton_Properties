@@ -2,7 +2,7 @@
 #SBATCH -p action
 #SBATCH -J PF
 #SBATCH -o output.slurm
-#SBATCH -t 5-00:00:00
+#SBATCH -t 1:00:00
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem 1GB
@@ -12,7 +12,7 @@ export MKL_NUM_THREADS=1
 
 for k in {0..1000..10}; do
     wc=$( bc -l <<< $k*0.01 )
-    echo $1 $wc
+    echo "A0 = $1 wc = $wc"
     python3 Pauli-Fierz_DdotE.py $1 ${wc}
 done
 

@@ -12,9 +12,9 @@ def get_globals():
     global RPA
 
     ##### MAIN USER INPUT SECTION #####
-    NM        = 5 # Number of Electronic States (including ground state)
+    NM        = 100    # Number of Electronic States (including ground state)
     NF        = 5 # Number of Fock Basis States
-    EVEC_INTS = np.array([ 1,1,1 ]) # Cavity Polarization Vector (input as integers without normalizing)
+    EVEC_INTS = np.array([ 1,0,0 ]) # Cavity Polarization Vector (input as integers without normalizing)
     RPA       = True # Look for TD-DFT/RPA data rather than TD-DFT/TDA data
     ##### END USER INPUT SECTION  #####
     
@@ -83,9 +83,9 @@ def SolvePlotandSave(H_PF,EAD,MU):
         
         # Save Data
         EVEC_OUT = "_".join(map(str,EVEC_INTS))
-        np.savetxt( f"data_PF/E_{EVEC_OUT}_A0_{round(A0,6)}_wc_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", E * 27.2114 )
-        #np.savetxt( f"data_PF/U_{EVEC_OUT}_A0_{round(A0,6)}_wc_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", U ) # These can be large
-        np.save( f"data_PF/U_{EVEC_OUT}_A0_{round(A0,6)}_wc_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", U ) # Binary is smaller
+        np.savetxt( f"data_PF/E_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", E * 27.2114 )
+        #np.savetxt( f"data_PF/U_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", U ) # These can be large
+        np.save( f"data_PF/U_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", U ) # Binary is smaller
 
         print ( A0, wc_eV )
 
