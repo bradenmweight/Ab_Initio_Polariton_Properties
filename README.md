@@ -23,6 +23,7 @@ QCHEM_TD_DFT/QCHEM.plots/ (Location of dens* and trans* Gaussian cube files)
 ## Compute Properties
 --To be run in QCHEM_TD_DFT/PF_NF5_NM10/
 1. ```compute_properties.py```
+2. ```submit.compute``` (To submit an HPC job)
 
 
 
