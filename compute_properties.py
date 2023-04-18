@@ -36,13 +36,13 @@ def getGlobals():
     #A0_LIST = np.arange( 0.0, 0.2+0.001, 0.001 ) # For spectra
     #A0_LIST = np.arange( 0.0, 0.02+0.01, 0.01 ) # For orbitals
     #A0_LIST = np.array( [0.0, 0.05, 0.1, 0.15, 0.2] ) # For orbitals
-    A0_LIST = np.array( [0.0,0.01,0.05,0.1,0.2] ) # For orbitals
+    A0_LIST = np.array( [0.0, 0.01, 0.05, 0.1, 0.2] ) # For orbitals
     NA0 = len(A0_LIST)
     WC = 3.0   # eV
     NM = 50
     NF = 10
     RPA = True # Look for TD-DFT/RPA data rather than TD-DFT/TDA data
-    EVEC_INTS = np.array([ 0,1,0 ]) # Cavity Polarization Vector (input as integers without normalizing)
+    EVEC_INTS = np.array([ 1,0,0 ]) # Cavity Polarization Vector (input as integers without normalizing)
     #NPolCompute = NM # For spectra
     NPolCompute = 6 # For Orbitals
     QGrid = np.arange( -20, 20, 0.2 )
@@ -253,46 +253,64 @@ def plot_dipole( MU ):
 
     sp.call('mkdir -p data_dipole',shell=True)
 
-    # Get max and round to nearest 0.5
-    MU1_MAX = np.max( np.abs(MU) )
-    MU1_MAX = round( MU1_MAX*5 )/5
+    xyz_dict = { 0:"x", 1:"y", 2:"z" }
 
-    # Get max and round to nearest 10
-    MU2_MAX = np.max( np.abs(MU @ MU) )
-    MU2_MAX = round( MU2_MAX*10 )/10
+    for dim in range(4):
 
-    # Plot dipole matrix
-    np.savetxt(f"data_dipole/DIPOLE_MATRIX.dat", np.abs(MU))
-    plt.imshow( np.abs(MU), origin='lower', cmap='afmhot_r', vmin=0.0, vmax=MU1_MAX )
-    plt.colorbar(pad=0.01)
-    plt.savefig(f"data_dipole/DIPOLE_MATRIX.jpg",dpi=600)
-    plt.clf()
+        polarization      = np.zeros((3))
 
-    # Plot dipole matrix squared (0-J elements)
-    np.savetxt(f"data_dipole/DIPOLE_MATRIX_0J.dat", np.abs(MU)[0,:] )
-    plt.stem( np.abs(MU)[0,:] )
-    plt.ylim(0.01)
-    plt.xlabel("Electronic State $\\alpha$",fontsize=15)
-    plt.ylabel("Dipole Matrix, $|\mu_{0\\alpha}|$ (a.u.)",fontsize=15)
-    plt.savefig(f"data_dipole/DIPOLE_MATRIX_0J.jpg",dpi=600)
-    plt.clf()
+        if ( dim == 3 ):
+            polarization[:] = np.array([1.0,1.0,1.0])
+            MU_d = np.einsum("JKd,d->JK", MU[:,:,:], polarization[:] / np.sqrt(3))
+            name = "Total"
+        else:
+            polarization[dim] = 1.0
+            MU_d = np.einsum("JKd,d->JK", MU[:,:,:], polarization[:])
+            name = xyz_dict[dim]
 
-    # Plot dipole matrix squared
-    np.savetxt(f"data_dipole/DIPOLE_MATRIX_SQUARED.dat", np.abs(MU @ MU))
-    plt.imshow( np.abs(MU @ MU), origin='lower', cmap='afmhot_r', vmin=0.0, vmax=MU2_MAX )
-    plt.colorbar(pad=0.01)
-    plt.savefig(f"data_dipole/DIPOLE_MATRIX_SQUARED.jpg",dpi=600)
-    plt.clf()
+        # Get max and round to nearest 0.5
+        MU1_MAX = np.max( np.abs(MU_d) )
+        MU1_MAX = round( MU1_MAX*5 )/5
 
-    
-    # Plot dipole matrix squared (0-J elements)
-    np.savetxt(f"data_dipole/DIPOLE_MATRIX_SQUARED_0J.dat", np.abs(MU @ MU)[0,:] )
-    plt.stem( np.abs(MU @ MU)[0,:] )
-    plt.ylim(0.01)
-    plt.xlabel("Electronic State $\\alpha$",fontsize=15)
-    plt.ylabel("Square Dipole Matrix, $|(\hat{\mu}^2)_{0\\alpha}|$ (a.u.)",fontsize=15)
-    plt.savefig(f"data_dipole/DIPOLE_MATRIX_SQUARED_0J.jpg",dpi=600)
-    plt.clf()
+        # Get max and round to nearest 10
+        MU2_MAX = np.max( np.abs(MU_d @ MU_d) )
+        MU2_MAX = round( MU2_MAX*10 )/10
+
+        # Plot dipole matrix
+        np.savetxt(f"data_dipole/DIPOLE_MATRIX_{name}.dat", np.abs(MU_d))
+        plt.imshow( np.abs(MU_d), origin='lower', cmap='afmhot_r', vmin=0.0, vmax=MU1_MAX )
+        plt.colorbar(pad=0.01)
+        plt.savefig(f"data_dipole/DIPOLE_MATRIX_{name}.jpg",dpi=600)
+        plt.clf()
+
+        # Plot dipole matrix squared (0-J elements)
+        np.savetxt(f"data_dipole/DIPOLE_MATRIX_0J_{name}.dat", np.abs(MU_d)[0,:] )
+        plt.stem( np.abs(MU_d)[0,:] )
+        plt.ylim(0.0)
+        plt.xlabel("Electronic State $\\alpha$",fontsize=15)
+        plt.ylabel("Dipole Matrix, $|\mu_{0\\alpha}|$ (a.u.)",fontsize=15)
+        plt.savefig(f"data_dipole/DIPOLE_MATRIX_0J_{name}.jpg",dpi=600)
+        plt.clf()
+
+        # Plot dipole matrix squared
+        np.savetxt(f"data_dipole/DIPOLE_MATRIX_SQUARED_{name}.dat", np.abs(MU_d @ MU_d))
+        plt.imshow( np.abs(MU_d @ MU_d), origin='lower', cmap='afmhot_r', vmin=0.0, vmax=MU2_MAX )
+        plt.colorbar(pad=0.01)
+        plt.savefig(f"data_dipole/DIPOLE_MATRIX_SQUARED_{name}.jpg",dpi=600)
+        plt.clf()
+        
+        # Plot dipole matrix squared (0-J elements)
+        np.savetxt(f"data_dipole/DIPOLE_MATRIX_SQUARED_0J_{name}.dat", np.abs(MU_d @ MU_d)[0,:] )
+        plt.stem( np.abs(MU_d @ MU_d)[0,:] )
+        plt.ylim(0.0)
+        plt.xlabel("Electronic State $\\alpha$",fontsize=15)
+        plt.ylabel("Square Dipole Matrix, $|(\hat{\mu}^2)_{0\\alpha}|$ (a.u.)",fontsize=15)
+        plt.savefig(f"data_dipole/DIPOLE_MATRIX_SQUARED_0J_{name}.jpg",dpi=600)
+        plt.clf()
+
+
+
+
 
 
 def get_HadMU():
@@ -319,11 +337,13 @@ def get_HadMU():
         EAD += np.loadtxt("../PLOTS_DATA/ADIABATIC_ENERGIES_TDA.dat")[:NM]
         MU  += np.load("../PLOTS_DATA/DIPOLE_TDA.dat.npy")[:NM,:NM]
 
-    MU = np.einsum("JKd,d->JK", MU, EVEC_NORM)
+
 
     assert( NPolCompute <= len(Upol[0]) ), "Number of requested polaritons to compute is larger than the number of polaritons."
 
     plot_dipole( MU ) # Only plot in direction needed
+
+    MU = np.einsum("JKd,d->JK", MU, EVEC_NORM)
 
     return Epol, Upol, EAD, MU
 
@@ -811,14 +831,25 @@ def plot_diag_contributions():
             np.savetxt(f"data_diagonal_density/MATTER_CONTRIBUTIONS_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.dat", MATTER_CONT)
             plt.imshow( MATTER_CONT, origin='lower', cmap='brg', norm=mpl.colors.LogNorm(vmin=0.01, vmax=1.00) )
             plt.colorbar(pad=0.01)
+            plt.xlabel("Electronic State $\\alpha$",fontsize=15)
+            plt.ylabel("Electronic State $\\beta$",fontsize=15)
+            plt.title(f"Electronic Contributions to $P_{state}$",fontsize=15)
             plt.savefig(f"data_diagonal_density/MATTER_CONTRIBUTIONS_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.jpg",dpi=600)
             plt.clf()
 
+            plt.stem( np.log(np.abs(MATTER_CONT[0,:])+1e-6)/np.log(10), bottom=-10 )
+            plt.ylim(-3,0)
+            plt.xlabel("Electronic State $\\alpha$",fontsize=15)
+            plt.ylabel("LOG[$\sum_n$ C(0,n) C($\\alpha$ n)]",fontsize=15)
+            plt.title(f"Electronic Coherence (0-->$\\alpha$) Contributions to $|P_{state}><P_{state}|$",fontsize=15)
+            plt.savefig(f"data_diagonal_density/MATTER_CONTRIBUTIONS_0J_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.jpg",dpi=600)
+            plt.clf()
 
 def compute_diagonal_density_1r( Upol, TD_matter ):
     sp.call('mkdir -p data_diagonal_density',shell=True)
 
     DIAG_DENSITY = get_diag_density_fast_1r( Upol, TD_matter, NPolCompute ).reshape(( len(Upol), NPolCompute, Nxyz[0],Nxyz[1],Nxyz[2] ))
+    plot_diag_contributions()
 
 
     if ( write_TD_Files == True ):
@@ -851,7 +882,6 @@ def compute_diagonal_density_1r( Upol, TD_matter ):
                 f.close()
 
 
-    plot_diag_contributions()
 
     return DIAG_DENSITY
 
@@ -1190,7 +1220,9 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
                 VMAX = np.max([ -VMIN, VMAX  ])
                 VMIN = -VMAX
                 if ( VMAX > 30 ):
-                    print ( "\n\tWARNING!!!! SOMETHING WRONG WITH DIFFERENCE DENSITY!!!" )
+                    print ( "\n\tWARNING!!!! SOMETHING MAY BE WRONG WITH DIFFERENCE DENSITY!!!" )
+                    print ( "\tWARNING!!!! VERY LARGE DIFFERENCE DENSITY!!!" )
+                    print ( "\tWARNING!!!! USE WITH CAUTION!!!" )
                     print ( f"\t (MIN,MAX) = ({np.min( DIFF_DENSITY[A0IND,p,:,:,:]*1000 )},{np.max( DIFF_DENSITY[A0IND,p,:,:,:]*1000 )}) m|e|/A^2" )
                 f = np.sum( DIFF_DENSITY[A0IND,p,:,:,:]*1000, axis=0*((1,2) == plotDIM2D) + 1*((0,2) == plotDIM2D) + 2*((0,1) == plotDIM2D) )
                 f_interp = interp2d(R,R,f,kind='cubic')
