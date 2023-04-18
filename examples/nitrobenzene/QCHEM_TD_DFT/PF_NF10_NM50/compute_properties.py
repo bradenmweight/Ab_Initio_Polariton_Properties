@@ -38,7 +38,7 @@ def getGlobals():
     #A0_LIST = np.array( [0.0, 0.05, 0.1, 0.15, 0.2] ) # For orbitals
     A0_LIST = np.array( [0.0, 0.01, 0.05, 0.1, 0.2] ) # For orbitals
     NA0 = len(A0_LIST)
-    WC = 3.0   # eV
+    WC = 9.0   # eV
     NM = 50
     NF = 10
     RPA = True # Look for TD-DFT/RPA data rather than TD-DFT/TDA data
@@ -47,7 +47,7 @@ def getGlobals():
     NPolCompute = 6 # For Orbitals
     QGrid = np.arange( -20, 20, 0.2 )
     write_TD_Files = True
-    print_level = 0 # 0 = Minimal, 1 = Some, 2 = Debugging
+    print_level = 0 # 0 = Minimal, 1 = Some, 2 = Debugging --> This was a goal that never happened.
     d = 'x'
     plotDIM   = 'x' # Dimension for plotting 2D transition density
     plotDIM2D = (0,1) # Plotting these two dimensions as heatmap/contour
@@ -551,7 +551,7 @@ def get_TD_Data():
                 else:
                     raise FileNotFoundError
             except FileNotFoundError:
-                print (f'\t****** File "trans-{state_j}_{state_k}.cube" not found. Skipping this matrix element. ******')
+                ####print (f'\t****** File "trans-{state_j}_{state_k}.cube" not found. Skipping this matrix element. ******')
                 continue
             for count, line in enumerate(lines):
                 t = line.split('\n')[0].split()
@@ -564,12 +564,13 @@ def get_TD_Data():
                 norm = np.sum( TD[state_j,state_k,:,:,:],axis=(0,1,2) ) * dLxyz[0]*dLxyz[1]*dLxyz[2]
                 if ( state_j == state_k and state_j == 0 ):
                     GS_NORM = norm * 1.0
+                    GS_NORM = round(GS_NORM/2)*2 # Round to nearest even electron number
                 else:
                     if ( abs( norm - GS_NORM ) > 0.25 ): # Check within quarter of an electron...
                         is_QCHEM = True
-                        print("I FOUND QCHEM ERROR ! Multiplying non-ground state densities by factor of 2...")
-                        TD[state_j,state_k,:,:,:] *= 2
-                        norm                      *= 2
+                        print("I FOUND QCHEM ERROR ! Forcing non-ground state densities to be same as ground state density...")
+                        TD[state_j,state_k,:,:,:] *= (GS_NORM/norm)
+                        norm                       = GS_NORM
                         print("Skipping diagonal density normalization: norm =", norm)
                         if ( abs( norm - GS_NORM ) > 1e-2 ):
                             print("Total electrons are still broken...QCHEM + grid data issue ?")
@@ -842,6 +843,7 @@ def plot_diag_contributions():
             plt.xlabel("Electronic State $\\alpha$",fontsize=15)
             plt.ylabel("LOG[$\sum_n$ C(0,n) C($\\alpha$ n)]",fontsize=15)
             plt.title(f"Electronic Coherence (0-->$\\alpha$) Contributions to $|P_{state}><P_{state}|$",fontsize=15)
+            plt.tight_layout()
             plt.savefig(f"data_diagonal_density/MATTER_CONTRIBUTIONS_0J_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.jpg",dpi=600)
             plt.clf()
 
@@ -1110,6 +1112,8 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
     # 1 (no cavity) - 0 (no cavity)
     # 2 (cavity) - 0 (cavity)
     # 2 (cavity) - 1 (cavity)
+    # 4 (no cavity) - 0 (no cavity)
+    # 4 (cavity) - 0 (cavity)
     
     option_names = ["00_cavity_no-cavity", "11_cavity_no-cavity", "21_cavity_no-cavity", \
                     "10_cavity", "10_no-cavity", "20_cavity", "21_cavity", \
@@ -1154,6 +1158,14 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
     for A0IND, A0 in enumerate( A0_LIST ):
         DIFF_DENSITY[A0IND,8,:,:,:] = diag_density[A0IND,4,:,:,:] - diag_density[A0IND,0,:,:,:]
 
+    # Check the sum of the density difference --> Should this be zero ?
+    NORM = np.zeros(( N_OPTIONS, len(A0_LIST) ))
+    for p in range(N_OPTIONS):
+        for A0IND, A0 in enumerate( A0_LIST ):
+            NORM[p,A0IND] = np.sum( DIFF_DENSITY[A0IND,p,:,:,:] ) * dLxyz[0] * dLxyz[1] * dLxyz[2]
+    np.savetxt("data_difference_density/diff_dens_norm.dat", NORM*1000, header="(N_OPTIONS x NA0) m|e|", fmt="%1.6f")
+
+
 
     plot_ind = 0 * ("x" == plotDIM) + 1 * ("y" == plotDIM) + 2 * ("z" == plotDIM)
     R = np.arange(Nxyz[plot_ind]) * dLxyz[plot_ind] * 0.529 # Bohr --> Angstrom
@@ -1185,13 +1197,14 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
                                 f.write( " ".join(map( str, np.round(outArray,8) )) + "\n" )
                                 outArray = []
                 f.close()
-
-                f = np.sum( DIFF_DENSITY[A0IND,p,:,:,:], axis=(1,2)*("x" == plotDIM) + (0,2)*("y" == plotDIM) + (0,1)*("z" == plotDIM) )
-                f_interp = interp1d(R,f,kind='cubic')
+                dA   = dLxyz[1]*dLxyz[2]*("x" == plotDIM) + dLxyz[0]*dLxyz[2]*("y" == plotDIM) + dLxyz[0]*dLxyz[1]*("z" == plotDIM)
+                axis = (1,2)*("x" == plotDIM) + (0,2)*("y" == plotDIM) + (0,1)*("z" == plotDIM)
+                func = np.sum( DIFF_DENSITY[A0IND,p,:,:,:] * dA, axis=axis )
+                func_interp = interp1d(R,func,kind='cubic')
                 #plt.plot( R, f ,label="A$_0$ = "+f"{round(A0_LIST[A0IND],3)} a.u.")
                 print("Length of RGrid:", len(R), len(R_fine))
-                print("Length of function:", len(f), len(f_interp(R_fine)))
-                plt.plot( R_fine, f_interp(R_fine) ,label="A$_0$ = "+f"{round(A0_LIST[A0IND],5)} a.u.")
+                print("Length of function:", len(func), len(func_interp(R_fine)))
+                plt.plot( R_fine, func_interp(R_fine) ,label="A$_0$ = "+f"{round(A0_LIST[A0IND],5)} a.u.")
             plt.legend()
             plt.xlim(0,R[-1])
             plt.xlabel(f"Real-space Position Along '{plotDIM}' ($\AA$)",fontsize=15)
@@ -1202,9 +1215,10 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
             plt.clf()
 
 
-            RX_MIN = 0
+            # This will be useful when working with differently sized molecules
+            RX_MIN = 1
             RX_MAX = 11            
-            RY_MIN = 0
+            RY_MIN = 1
             RY_MAX = 11     
             INDS_X = ( ind for ind,r in enumerate(R_fine) if (r >= RX_MIN and r <= RX_MAX) )
             INDS_Y = ( ind for ind,r in enumerate(R_fine) if (r >= RY_MIN and r <= RY_MAX) )
@@ -1215,23 +1229,26 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
 
                 print(f"Writing the difference density ({option_names[p]}) contour data to a file (A0 = {round(A0,6)}).")
                 A0 = round(A0,5)
-                VMIN = np.min( DIFF_DENSITY[A0IND,p,:,:,:]*1000 )
-                VMAX = np.max( DIFF_DENSITY[A0IND,p,:,:,:]*1000 )
+                axis = 0*((1,2) == plotDIM2D) + 1*((0,2) == plotDIM2D) + 2*((0,1) == plotDIM2D)
+                dL   = dLxyz[0]*((1,2) == plotDIM2D) + dLxyz[1]*((0,2) == plotDIM2D) + dLxyz[2]*((0,1) == plotDIM2D)
+                func = np.sum( DIFF_DENSITY[A0IND,p,:,:,:]*1000 * dL, axis=axis )
+                VMIN = np.min( func )
+                VMAX = np.max( func )
                 VMAX = np.max([ -VMIN, VMAX  ])
                 VMIN = -VMAX
                 if ( VMAX > 30 ):
                     print ( "\n\tWARNING!!!! SOMETHING MAY BE WRONG WITH DIFFERENCE DENSITY!!!" )
                     print ( "\tWARNING!!!! VERY LARGE DIFFERENCE DENSITY!!!" )
                     print ( "\tWARNING!!!! USE WITH CAUTION!!!" )
-                    print ( f"\t (MIN,MAX) = ({np.min( DIFF_DENSITY[A0IND,p,:,:,:]*1000 )},{np.max( DIFF_DENSITY[A0IND,p,:,:,:]*1000 )}) m|e|/A^2" )
-                f = np.sum( DIFF_DENSITY[A0IND,p,:,:,:]*1000, axis=0*((1,2) == plotDIM2D) + 1*((0,2) == plotDIM2D) + 2*((0,1) == plotDIM2D) )
-                f_interp = interp2d(R,R,f,kind='cubic')
-                np.savetxt( f'data_difference_density/difference_density_contour_{EVEC_OUT}_{option_names[p]}_A0{A0}_WC{WC}_NM{NM}_NF{NF}.dat', f_interp(RX_fine_CUT,RY_fine_CUT).T )
+                    print ( f"\t (MIN,MAX) = ({np.min( func )},{np.max( func )}) m|e|/A^2" )
+                
+                func_interp = interp2d(R,R,func,kind='cubic')
+                np.savetxt( f'data_difference_density/difference_density_contour_{EVEC_OUT}_{option_names[p]}_A0{A0}_WC{WC}_NM{NM}_NF{NF}.dat', func_interp(RX_fine_CUT,RY_fine_CUT).T )
                 np.savetxt( f'data_difference_density/difference_density_contour_RXGRID_NM{NM}_NF{NF}.dat', RX_fine_CUT )
                 np.savetxt( f'data_difference_density/difference_density_contour_RYGRID_NM{NM}_NF{NF}.dat', RY_fine_CUT )
 
                 X,Y = np.meshgrid( RX_fine_CUT,RY_fine_CUT )
-                plt.contourf( X, Y, f_interp(RX_fine_CUT,RY_fine_CUT), cmap="seismic", levels=500, vmin=VMIN, vmax=VMAX)
+                plt.contourf( X, Y, func_interp(RX_fine_CUT,RY_fine_CUT), cmap="seismic", levels=500, vmin=VMIN, vmax=VMAX)
                 plt.colorbar(pad=0.01)
                 plt.xlim(RX_MIN,RX_MAX)
                 plt.ylim(RY_MIN,RY_MAX)
