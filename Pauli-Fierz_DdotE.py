@@ -6,7 +6,6 @@ import subprocess as sp
 ##### Braden M. Weight #####
 #####  April 17, 2023  #####
 
-
 def get_globals():
     global NM, NF, A0, wc_eV, wc_AU
     global EVEC_INTS, EVEC_NORM
@@ -21,7 +20,7 @@ def get_globals():
     
     ##### DO NOT MODIFY BELIW HERE #####
     A0    = float( sys.argv[1] ) # a.u.
-    wc_eV = float( sys.argv[1] ) # eV
+    wc_eV = float( sys.argv[2] ) # eV
     
     wc_AU     = wc_eV / 27.2114
     EVEC_NORM = EVEC_INTS / np.linalg.norm(EVEC_INTS)
@@ -87,6 +86,8 @@ def SolvePlotandSave(H_PF,EAD,MU):
         np.savetxt( f"data_PF/E_{EVEC_OUT}_A0_{round(A0,6)}_wc_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", E * 27.2114 )
         #np.savetxt( f"data_PF/U_{EVEC_OUT}_A0_{round(A0,6)}_wc_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", U ) # These can be large
         np.save( f"data_PF/U_{EVEC_OUT}_A0_{round(A0,6)}_wc_{round(wc_eV,6)}_NF_{NF}_NM_{NM}.dat", U ) # Binary is smaller
+
+        print ( A0, wc_eV )
 
         # Save original EAD and MU for convenience
         np.savetxt( f"data_PF/EAD.dat", EAD * 27.2114 )
