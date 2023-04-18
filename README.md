@@ -1,10 +1,10 @@
-# ```Ab Initio Polaritons```
+# __*Ab Initio* Molecular Polaritons__
 
 ## Proposed directory structure:
 ```
 QCHEM_TD_DFT/ (Location for LR-TD-DFT using QCHEM)
 QCHEM_TD_DFT/PF_NF5_NM10/ (Location for solving the Pauli-Fierz Hamiltonian)
-QCHEM_TD_DFT/QCHEM.plots/ (Location of dens* and trans* Gaussian cube files)
+QCHEM_TD_DFT/QCHEM.plots/ (Location of dens* and trans* Gaussian-type cube files)
 ```
 
 ## QCHEM
