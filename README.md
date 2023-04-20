@@ -20,6 +20,10 @@ QCHEM_TD_DFT/QCHEM.plots/ (Location of dens* and trans* Gaussian-type cube files
     c. ```run_polaritons.sh``` (Use to submit $N_{A_0}$ jobs for each coupling strength $\omega_c$) \
     d. ```submit.polariton``` (Call PF code $N{\omega_c}$ times for each cavity frequency $\omega_c$)
 
+## Eigenenergies and Photonic Character
+--To be run in QCHEM_TD_DFT/PF_NF5_NM10/
+1. ```plot_polaritons.py```
+
 ## Compute Properties
 --To be run in QCHEM_TD_DFT/PF_NF5_NM10/
 1. ```compute_properties.py```
