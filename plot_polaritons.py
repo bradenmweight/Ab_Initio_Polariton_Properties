@@ -14,10 +14,10 @@ def get_globals():
     NF        = 5                   # Number of Fock Basis States
     EVEC_INTS = np.array([ 1,0,0 ]) # Cavity Polarization Vector (input as integers without normalizing)
     
-    A0_LIST = np.arange( 0.0, 0.05+0.0001, 0.0001 ) # a.u.
+    A0_LIST = np.arange( 0.0, 0.5+0.001, 0.001 ) # a.u.
     #A0_LIST = np.arange( 0.0, 0.1+0.05, 0.05 ) # a.u.
-    #WC_LIST = np.array([ 2.6354 ]) # eV
-    WC_LIST = np.arange( 0.0, 4+0.5, 0.5 )
+    WC_LIST = np.array([ 3.0 ]) # eV
+    #WC_LIST = np.arange( 0.0, 4+0.5, 0.5 )
     #WC_LIST = np.arange( 0.0, 10+0.025, 0.025 )
     ##### END USER INPUT SECTION  #####
 
@@ -90,12 +90,13 @@ def plot_A0SCAN_WC( EPOL, PHOT ):
     for WCIND, WC in enumerate( WC_LIST ):
         WC = round( WC, 5 )
         print(f"Plotting WC = {WC} eV")
+        VMAX = np.max(PHOT[:5,:,WCIND])
         for state in range( 50 ):
-            plt.scatter( A0_LIST, EPOL[state,:,WCIND] - EZERO, s=25, cmap=cmap, c=PHOT[state,:,WCIND] )
+            plt.scatter( A0_LIST, EPOL[state,:,WCIND] - EZERO, s=25, cmap=cmap, c=PHOT[state,:,WCIND], vmin=0.0, vmax=VMAX )
         
         plt.colorbar(pad=0.01,label="Average Photon Number")
         plt.xlim(A0_LIST[0],A0_LIST[-1])
-        plt.ylim(-0.01, 4)
+        plt.ylim(-0.01, 6)
         plt.xlabel( "Coupling Strength, $A_0$ (a.u.)", fontsize=15 )
         plt.ylabel( "Polariton Energy (eV)", fontsize=15 )
         plt.savefig( f"{DATA_DIR}/EPOL_A0SCAN_WC_{WC}.jpg", dpi=600 )
@@ -109,13 +110,14 @@ def plot_WCSCAN_A0( EPOL, PHOT ):
     cmap=mpl.colors.LinearSegmentedColormap.from_list('rg',[ "red", "darkred", "black", "darkgreen", "palegreen" ], N=256)
     for A0IND, A0 in enumerate( A0_LIST ):
         A0 = round( A0, 5 )
+        VMAX = np.max(PHOT[:5,:,A0IND])
         print(f"Plotting A0 = {A0} eV")
         for state in range( 50 ):
-            plt.scatter( WC_LIST, EPOL[state,A0IND,:] - EZERO, s=25, cmap=cmap, c=PHOT[state,A0IND,:] )
+            plt.scatter( WC_LIST, EPOL[state,A0IND,:] - EZERO, s=25, cmap=cmap, c=PHOT[state,A0IND,:], vmin=0.0, vmax=VMAX )
         
         plt.colorbar(pad=0.01,label="Average Photon Number")
         plt.xlim(WC_LIST[0],WC_LIST[-1])
-        plt.ylim(-0.01, 4)
+        plt.ylim(-0.01, 6)
         plt.xlabel( "Cavity Frequency, $\omega_c$ (eV)", fontsize=15 )
         plt.ylabel( "Polariton Energy (eV)", fontsize=15 )
         plt.savefig( f"{DATA_DIR}/EPOL_WCSCAN_A0_{A0}.jpg", dpi=600 )
