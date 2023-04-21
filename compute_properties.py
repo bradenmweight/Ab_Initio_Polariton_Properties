@@ -36,11 +36,12 @@ def getGlobals():
     #A0_LIST = np.arange( 0.0, 0.2+0.001, 0.001 ) # For spectra
     #A0_LIST = np.arange( 0.0, 0.02+0.01, 0.01 ) # For orbitals
     #A0_LIST = np.array( [0.0, 0.05, 0.1, 0.15, 0.2] ) # For orbitals
-    A0_LIST = np.array( [0.0, 0.01, 0.05, 0.1, 0.2] ) # For orbitals
+    #A0_LIST = np.array( [0.0, 0.1, 0.2, 0.3, 0.4, 0.5] ) # For orbitals
+    A0_LIST = np.arange( 0.0, 0.5+0.01, 0.01 ) # For orbitals
     NA0 = len(A0_LIST)
-    WC = 9.0   # eV
+    WC = 3.0   # eV
     NM = 50
-    NF = 10
+    NF = 5
     RPA = True # Look for TD-DFT/RPA data rather than TD-DFT/TDA data
     EVEC_INTS = np.array([ 1,0,0 ]) # Cavity Polarization Vector (input as integers without normalizing)
     #NPolCompute = NM # For spectra
@@ -257,6 +258,8 @@ def plot_dipole( MU ):
 
     for dim in range(4):
 
+        fig = plt.figure( figsize=[5.,5.] )
+
         polarization      = np.zeros((3))
 
         if ( dim == 3 ):
@@ -280,12 +283,15 @@ def plot_dipole( MU ):
         np.savetxt(f"data_dipole/DIPOLE_MATRIX_{name}.dat", np.abs(MU_d))
         plt.imshow( np.abs(MU_d), origin='lower', cmap='afmhot_r', vmin=0.0, vmax=MU1_MAX )
         plt.colorbar(pad=0.01)
+        plt.xlim(-0.5,len(MU_d)-1)
+        plt.ylim(-0.5,len(MU_d)-1)
         plt.savefig(f"data_dipole/DIPOLE_MATRIX_{name}.jpg",dpi=600)
         plt.clf()
 
         # Plot dipole matrix squared (0-J elements)
         np.savetxt(f"data_dipole/DIPOLE_MATRIX_0J_{name}.dat", np.abs(MU_d)[0,:] )
         plt.stem( np.abs(MU_d)[0,:] )
+        plt.xlim(-0.5,len(MU_d)-1)
         plt.ylim(0.0)
         plt.xlabel("Electronic State $\\alpha$",fontsize=15)
         plt.ylabel("Dipole Matrix, $|\mu_{0\\alpha}|$ (a.u.)",fontsize=15)
@@ -296,18 +302,20 @@ def plot_dipole( MU ):
         np.savetxt(f"data_dipole/DIPOLE_MATRIX_SQUARED_{name}.dat", np.abs(MU_d @ MU_d))
         plt.imshow( np.abs(MU_d @ MU_d), origin='lower', cmap='afmhot_r', vmin=0.0, vmax=MU2_MAX )
         plt.colorbar(pad=0.01)
+        plt.xlim(-0.5,len(MU_d)-1)
+        plt.ylim(-0.5,len(MU_d)-1)
         plt.savefig(f"data_dipole/DIPOLE_MATRIX_SQUARED_{name}.jpg",dpi=600)
         plt.clf()
         
         # Plot dipole matrix squared (0-J elements)
         np.savetxt(f"data_dipole/DIPOLE_MATRIX_SQUARED_0J_{name}.dat", np.abs(MU_d @ MU_d)[0,:] )
         plt.stem( np.abs(MU_d @ MU_d)[0,:] )
+        plt.xlim(-0.5,len(MU_d)-1)
         plt.ylim(0.0)
         plt.xlabel("Electronic State $\\alpha$",fontsize=15)
         plt.ylabel("Square Dipole Matrix, $|(\hat{\mu}^2)_{0\\alpha}|$ (a.u.)",fontsize=15)
         plt.savefig(f"data_dipole/DIPOLE_MATRIX_SQUARED_0J_{name}.jpg",dpi=600)
         plt.clf()
-
 
 
 
@@ -622,14 +630,256 @@ def getExansion(Upol):
 
     print ("Getting Projected Expansion Coefficients")
 
-    Upol_fock = trace_ad(Upol) # A0, Polariton, Adiabatic State
-    Upol_ad = trace_fock(Upol) # A0, Polariton, Fock State
+    matter_threshold = 1e-3 # Only plot contributions that are more than {threshold} at some point
+    photon_threshold = 1e-3 # Only plot contributions that are more than {threshold} at some point
+    U_0 = Upol[ : , :, 0 ]
 
-    #print ("Check Total Traces:")
-    #print (f"Upol_fock: { np.sum(Upol_fock[:,5,:],axis=1) }")
-    #print (f"Upol_ad: { np.sum(Upol_ad[:,5,:],axis=1) }")
-    #assert( np.allclose(np.sum(Upol_fock[:,5,:],axis=1), np.ones(len(A0_LIST))) ), "Fock traces are not normalized to unity."
-    #assert( np.allclose(np.sum(Upol_ad[:,5,:],axis=1), np.ones(len(A0_LIST))) ), "Matter traces are not normalized to unity."
+    for pol in range( NPolCompute ):
+
+        # First for polaritonic diagonal density elements: J --> J
+
+        U_p = Upol[ : , :, pol ]
+
+        # Trace Photon
+        U0_MATTER = np.zeros(( NM, NM, len(A0_LIST) ))
+        for A0IND in range( len(A0_LIST) ):
+            for n in range( NF ):
+                for alpha in range( NM ):
+                    polIND1 = alpha * NF + n
+                    for beta in range( NM ):
+                        polIND2 = beta * NF + n
+                        U0_MATTER[alpha, beta, A0IND] += U_p[A0IND, polIND1] * U_p[A0IND, polIND2 ]
+
+        if ( pol == 2 ):
+            print( U0_MATTER[1,1,:] )
+
+        ROW_MATTER  = U0_MATTER[0,:,:]
+        DIAG_MATTER = np.array([ np.array(U0_MATTER[J,J,:]) for J in range( NM ) ])
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", DIAG_MATTER, fmt="%1.5f" )
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", np.abs(ROW_MATTER), fmt="%1.5f" )
+        # Plot diagonal ones
+        states = []
+        for j in range( NM ):
+            if ( np.max(np.abs(DIAG_MATTER[j,:])) > matter_threshold ):
+                states.append(j)
+        #states = [ count for count,j in enumerate(DIAG_MATTER[:,-1] > matter_threshold) if j == True ]
+        for count,alpha in enumerate(states):
+            if ( alpha == 0 and pol == 0 ):
+                plt.plot( A0_LIST, 1-DIAG_MATTER[alpha,:], "-o", c='black', label=f"1 - $\\xi$({alpha},{alpha})" )
+            else:
+                plt.plot( A0_LIST, DIAG_MATTER[alpha,:], "-o", label=f"$\\xi$({alpha},{alpha})" )
+        plt.legend()
+        plt.xlim(A0_LIST[0], A0_LIST[-1])
+        plt.ylim(0)
+        plt.savefig(f"data_expansion/RHO_{pol}{pol}_MATTER_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.jpg",dpi=600)
+        plt.clf()
+        # Plot transition ones
+        states = []
+        for j in range( NM ):
+            if ( np.max(np.abs(ROW_MATTER[j,:])) > matter_threshold ):
+                states.append(j)
+        #states = [ count for count,j in enumerate(ROW_MATTER[:,-1] > matter_threshold) if j == True ]
+        for count,alpha in enumerate(states):
+            if ( alpha == 0 and pol == 0 ):
+                plt.plot( A0_LIST, 1-np.abs(ROW_MATTER[alpha,:]), "-o", c='black', label=f"1 - $\\xi$({0},{alpha})" )
+            else:
+                plt.plot( A0_LIST, np.abs(ROW_MATTER[alpha,:]), "-o", label=f"$\\xi$({0},{alpha})" )
+                plt.legend()
+        plt.xlim(A0_LIST[0], A0_LIST[-1])
+        plt.ylim(0)
+        plt.savefig(f"data_expansion/RHO_{pol}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.jpg",dpi=600)
+        plt.clf()
+
+        # Trace matter
+        U0_PHOTON = np.zeros(( NF, NF, len(A0_LIST) ))
+        for A0IND in range( len(A0_LIST) ):
+            for alpha in range( NM ):
+                for n in range( NF ):
+                    polIND1 = alpha * NF + n
+                    for m in range( NF ):
+                        polIND2 = alpha * NF + m
+                        U0_PHOTON[n, m, A0IND] += U_p[A0IND, polIND1] * U_p[ A0IND, polIND2]
+
+        ROW_PHOTON  = U0_PHOTON[0,:,:]
+        DIAG_PHOTON = np.array([ np.array(U0_PHOTON[J,J,:]) for J in range( NF ) ])
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_PHOTON_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", DIAG_PHOTON, fmt="%1.5f" )
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_PHOTON_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", np.abs(ROW_PHOTON), fmt="%1.5f" )
+        # Plot diagonal ones
+        states = []
+        for j in range( NF ):
+            if ( np.max(np.abs(DIAG_PHOTON[j,:])) > photon_threshold ):
+                states.append(j)
+        #states = [ count for count,j in enumerate(DIAG_PHOTON[:,-1] > photon_threshold) if j == True ]
+        for count,alpha in enumerate(states):
+            if ( alpha == 0 ):
+                plt.plot( A0_LIST, DIAG_PHOTON[alpha,:], "-o", c='black', label=f"$\phi$({alpha},{alpha})" )
+            else:
+                plt.plot( A0_LIST, DIAG_PHOTON[alpha,:], "-o", label=f"$\phi$({alpha},{alpha})" )
+        plt.legend()
+        plt.xlim(A0_LIST[0], A0_LIST[-1])
+        plt.ylim(0)
+        plt.savefig(f"data_expansion/RHO_{pol}{pol}_PHOTON_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.jpg",dpi=600)
+        plt.clf()
+        # Plot transition ones
+        states = []
+        for j in range( NF ):
+            if ( np.max(np.abs(ROW_PHOTON[j,:])) > photon_threshold ):
+                states.append(j)
+        #states = [ count for count,j in enumerate(ROW_PHOTON[:,-1] > photon_threshold) if j == True ]
+        for count,alpha in enumerate(states):
+            if ( alpha == 0 ):
+                plt.plot( A0_LIST, np.abs(ROW_PHOTON[alpha,:]), "-o", c='black', label=f"$\phi$({0},{alpha})" )
+            else:
+                plt.plot( A0_LIST, np.abs(ROW_PHOTON[alpha,:]), "-o", label=f"$\phi$({0},{alpha})" )
+                plt.legend()
+        plt.xlim(A0_LIST[0], A0_LIST[-1])
+        plt.ylim(0)
+        plt.savefig(f"data_expansion/RHO_{pol}{pol}_PHOTON_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.jpg",dpi=600)
+        plt.clf()
+
+        # Plot contributions from specific states as functions of A0
+        states = []
+        for j in range( NM ):
+            if ( np.max(np.abs(ROW_MATTER[j,:])) > matter_threshold ):
+                states.append(j)
+        #states = [ count for count,j in enumerate(ROW_MATTER[:,-1] > matter_threshold) if j == True ]
+
+        output_JJ = np.zeros(( len(states), len(A0_LIST) ))
+        output_0J = np.zeros(( len(states), len(A0_LIST) ))
+        for A0IND in range( len(A0_LIST) ):
+            for count, state in enumerate(states):
+                output_JJ[count, :] = DIAG_MATTER[state,:]
+                output_0J[count, :] = ROW_MATTER[state,:]
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}_A0.dat", output_JJ.T, fmt="%1.5f", header=" ".join(map(str,states)) )
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}_A0.dat", np.abs(output_0J).T, fmt="%1.5f", header=" ".join(map(str,states)) )
+
+        states = []
+        for j in range( NF ):
+            if ( np.max(np.abs(ROW_PHOTON[j,:])) > photon_threshold ):
+                states.append(j)
+        #states = [ count for count,j in enumerate(ROW_PHOTON[:,-1] > photon_threshold) if j == True ]
+        output_JJ = np.zeros(( len(states), len(A0_LIST) ))
+        output_0J = np.zeros(( len(states), len(A0_LIST) ))
+        for A0IND in range( len(A0_LIST) ):
+            for count, state in enumerate(states):
+                output_JJ[count, :] = DIAG_PHOTON[state,:]
+                output_0J[count, :] = ROW_PHOTON[state,:]
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_PHOTON_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}_A0.dat", output_JJ.T, fmt="%1.5f", header=" ".join(map(str,states)) )
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_PHOTON_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}_A0.dat", np.abs(output_0J).T, fmt="%1.5f", header=" ".join(map(str,states)) )
+
+
+        # Now again for polaritonic transition elements: 0 --> J
+
+        # Trace Photon
+        U0_MATTER = np.zeros(( NM, NM, len(A0_LIST) ))
+        for A0IND in range( len(A0_LIST) ):
+            for n in range( NF ):
+                for alpha in range( NM ):
+                    polIND1 = alpha * NF + n
+                    for beta in range( NM ):
+                        polIND2 = beta * NF + n
+                        U0_MATTER[alpha, beta, A0IND] += U_0[A0IND, polIND1] * U_p[A0IND, polIND2]
+
+        ROW_MATTER  = U0_MATTER[0,:,:]
+        DIAG_MATTER = np.array([ np.array(U0_MATTER[J,J,:]) for J in range( NM ) ])
+        np.savetxt( f"data_expansion/RHO_{0}{pol}_MATTER_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", DIAG_MATTER, fmt="%1.5f" )
+        np.savetxt( f"data_expansion/RHO_{0}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", np.abs(ROW_MATTER), fmt="%1.5f" )
+        # Plot diagonal ones
+        states = []
+        for j in range( NM ):
+            if ( np.max(np.abs(DIAG_MATTER[j,:])) > matter_threshold ):
+                states.append(j)
+        #states = [ count for count,j in enumerate(DIAG_MATTER[:,-1] > matter_threshold) if j == True ]
+        for count,alpha in enumerate(states):
+            if ( alpha == 0 and pol == 0 ):
+                plt.plot( A0_LIST, 1-DIAG_MATTER[alpha,:], "-o", c='black', label=f"1 - $\\xi$({alpha},{alpha})" )
+            else:
+                plt.plot( A0_LIST, DIAG_MATTER[alpha,:], "-o", label=f"$\\xi$({alpha},{alpha})" )
+        plt.legend()
+        plt.xlim(A0_LIST[0], A0_LIST[-1])
+        plt.ylim(0)
+        plt.savefig(f"data_expansion/RHO_{0}{pol}_MATTER_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.jpg",dpi=600)
+        plt.clf()
+        # Plot transition ones
+        states = []
+        for j in range( NM ):
+            if ( np.max(np.abs(ROW_MATTER[j,:])) > matter_threshold ):
+                states.append(j)
+        states = [ count for count,j in enumerate(ROW_MATTER[:,-1] > matter_threshold) if j == True ]
+        for count,alpha in enumerate(states):
+            if ( alpha == 0 and pol == 0 ):
+                plt.plot( A0_LIST, 1-np.abs(ROW_MATTER[alpha,:]), "-o", c='black', label=f"1 - $\\xi$({0},{alpha})" )
+            else:
+                plt.plot( A0_LIST, np.abs(ROW_MATTER[alpha,:]), "-o", label=f"$\\xi$({0},{alpha})" )
+                plt.legend()
+        plt.xlim(A0_LIST[0], A0_LIST[-1])
+        plt.ylim(0)
+        plt.savefig(f"data_expansion/RHO_{0}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.jpg",dpi=600)
+        plt.clf()
+
+        # Trace matter
+        U0_PHOTON = np.zeros(( NF, NF, len(A0_LIST) ))
+        for A0IND in range( len(A0_LIST) ):
+            for alpha in range( NM ):
+                for n in range( NF ):
+                    polIND1 = alpha * NF + n
+                    for m in range( NF ):
+                        polIND2 = alpha * NF + m
+                        U0_PHOTON[n, m, A0IND] += U_0[A0IND, polIND1] * U_p[A0IND, polIND2]
+
+        ROW_PHOTON  = U0_PHOTON[0,:,:]
+        DIAG_PHOTON = np.array([ np.array(U0_PHOTON[J,J,:]) for J in range( NF ) ])
+        np.savetxt( f"data_expansion/RHO_{0}{pol}_PHOTON_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", DIAG_PHOTON, fmt="%1.5f" )
+        np.savetxt( f"data_expansion/RHO_{0}{pol}_PHOTON_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", np.abs(ROW_PHOTON), fmt="%1.5f" )
+        # Plot diagonal ones
+        states = []
+        for j in range( NF ):
+            if ( np.max(np.abs(DIAG_PHOTON[j,:])) > photon_threshold ):
+                states.append(j)
+        #states = [ count for count,j in enumerate(DIAG_PHOTON[:,-1] > photon_threshold) if j == True ]
+        for count,alpha in enumerate(states):
+            if ( alpha == 0 ):
+                plt.plot( A0_LIST, DIAG_PHOTON[alpha,:], "-o", c='black', label=f"$\phi$({alpha},{alpha})" )
+            else:
+                plt.plot( A0_LIST, DIAG_PHOTON[alpha,:], "-o", label=f"$\phi$({alpha},{alpha})" )
+        plt.legend()
+        plt.xlim(A0_LIST[0], A0_LIST[-1])
+        plt.ylim(0)
+        plt.savefig(f"data_expansion/RHO_{0}{pol}_PHOTON_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.jpg",dpi=600)
+        plt.clf()
+        # Plot transition ones
+        states = []
+        for j in range( NF ):
+            if ( np.max(np.abs(ROW_PHOTON[j,:])) > photon_threshold ):
+                states.append(j)
+        #states = [ count for count,j in enumerate(ROW_PHOTON[:,-1] > photon_threshold) if j == True ]
+        for count,alpha in enumerate(states):
+            if ( alpha == 0 ):
+                plt.plot( A0_LIST, np.abs(ROW_PHOTON[alpha,:]), "-o", c='black', label=f"$\phi$({0},{alpha})" )
+            else:
+                plt.plot( A0_LIST, np.abs(ROW_PHOTON[alpha,:]), "-o", label=f"$\phi$({0},{alpha})" )
+                plt.legend()
+        plt.xlim(A0_LIST[0], A0_LIST[-1])
+        plt.ylim(0)
+        plt.savefig(f"data_expansion/RHO_{0}{pol}_PHOTON_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.jpg",dpi=600)
+        plt.clf()
+
+        # Plot contributions from specific states as functions of A0
+        states = []
+        for j in range( NF ):
+            if ( np.max(np.abs(ROW_PHOTON[j,:])) > photon_threshold ):
+                states.append(j)
+        #states = [ count for count,j in enumerate(ROW_PHOTON[:,-1] > photon_threshold) if j == True ]
+
+        output_JJ = np.zeros(( len(states), len(A0_LIST) ))
+        output_0J = np.zeros(( len(states), len(A0_LIST) ))
+        for A0IND in range( len(A0_LIST) ):
+            for count, state in enumerate(states):
+                output_JJ[count, :] = DIAG_PHOTON[state,:]
+                output_0J[count, :] = ROW_PHOTON[state,:]
+        np.savetxt( f"data_expansion/RHO_{0}{pol}_PHOTON_JJ_A0_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", output_JJ.T, fmt="%1.5f", header=" ".join(map(str,states)) )
+        np.savetxt( f"data_expansion/RHO_{0}{pol}_PHOTON_0J_A0_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", np.abs(output_0J).T, fmt="%1.5f", header=" ".join(map(str,states)) )
+
 
 
 
@@ -838,6 +1088,7 @@ def plot_diag_contributions():
             plt.savefig(f"data_diagonal_density/MATTER_CONTRIBUTIONS_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.jpg",dpi=600)
             plt.clf()
 
+            np.savetxt(f"data_diagonal_density/MATTER_CONTRIBUTIONS_0J_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.dat", MATTER_CONT[0,:])
             plt.stem( np.log(np.abs(MATTER_CONT[0,:])+1e-6)/np.log(10), bottom=-10 )
             plt.ylim(-3,0)
             plt.xlabel("Electronic State $\\alpha$",fontsize=15)
@@ -846,6 +1097,7 @@ def plot_diag_contributions():
             plt.tight_layout()
             plt.savefig(f"data_diagonal_density/MATTER_CONTRIBUTIONS_0J_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.jpg",dpi=600)
             plt.clf()
+    exit()
 
 def compute_diagonal_density_1r( Upol, TD_matter ):
     sp.call('mkdir -p data_diagonal_density',shell=True)
@@ -1265,11 +1517,11 @@ def main():
     Epol, Upol, EAD, MU = get_HadMU()
 
     #### Density Analysis ####
-    TDM_matter = get_TD_Data()
+    #TDM_matter = get_TD_Data()
     #TD_pol_1r    = compute_Transition_density_1r( Upol, TDM_matter )
     #TD_pol_1r1q  = compute_Transition_density_1r1q( Upol, TDM_matter ) 
-    diag_density = compute_diagonal_density_1r( Upol, TDM_matter )
-    diff_density = compute_difference_density_1r( TDM_matter, diag_density )
+    #diag_density = compute_diagonal_density_1r( Upol, TDM_matter )
+    #diff_density = compute_difference_density_1r( TDM_matter, diag_density )
 
     #### Density Matrix Analysis ####
     #TDM_matter = get_TDM_Data()
@@ -1279,7 +1531,7 @@ def main():
     #NTO_matter = get_NTO_Data()
     #NTO_pol_1r = compute_NTO_1r( Upol, NTO_matter ) 
 
-    #getExansion(Upol)
+    getExansion(Upol)
 
     #eff_dipole_1 = getDipole_pow_1(Upol,MU)
     #eff_osc_str = getOscStr(Epol,eff_dipole_1)
