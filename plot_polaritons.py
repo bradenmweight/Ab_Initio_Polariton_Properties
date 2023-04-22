@@ -38,10 +38,12 @@ def get_energies():
 
     EPOL = np.zeros(( NPOL, NA0, NWC ))
 
-    if ( os.path.isfile(f"{DATA_DIR}/EPOL.dat.npy") ):
-        tmp = np.load(f"{DATA_DIR}/EPOL.dat.npy")
-        if ( tmp.shape == EPOL.shape ):
-            return tmp
+    # THIS DOES NOT WORK IF SHAPES ARE THE SAME BUT DIFFERENT DATA... NEED TO FIX THIS
+    # Too dangerous to use at the moment
+    #if ( os.path.isfile(f"{DATA_DIR}/EPOL.dat.npy") ):
+    #    tmp = np.load(f"{DATA_DIR}/EPOL.dat.npy")
+    #    if ( tmp.shape == EPOL.shape ):
+    #        return tmp
 
     for A0IND, A0 in enumerate( A0_LIST ):
         for WCIND, WC in enumerate( WC_LIST ):

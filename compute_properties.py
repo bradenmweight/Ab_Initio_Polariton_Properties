@@ -684,7 +684,7 @@ def getExansion(Upol):
                 plt.plot( A0_LIST, 1-np.abs(ROW_MATTER[alpha,:]), "-o", c='black', label=f"1 - $\\xi$({0},{alpha})" )
             else:
                 plt.plot( A0_LIST, np.abs(ROW_MATTER[alpha,:]), "-o", label=f"$\\xi$({0},{alpha})" )
-                plt.legend()
+        plt.legend()
         plt.xlim(A0_LIST[0], A0_LIST[-1])
         plt.ylim(0)
         plt.savefig(f"data_expansion/RHO_{pol}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.jpg",dpi=600)

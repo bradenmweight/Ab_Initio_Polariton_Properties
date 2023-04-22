@@ -30,20 +30,21 @@ def plot_dipole(DIP,label):
 def plot_energies(E_TDA,E_RPA):
     dRPA = (E_RPA - E_RPA[0]) * 27.2114 # a.u. to eV
     dTDA = (E_TDA - E_TDA[0]) * 27.2114 # a.u. to eV
-    plt.plot( np.arange(len(E_TDA)), dRPA, c="black", label="RPA" )
-    plt.plot( np.arange(len(E_TDA)), dTDA, c="red", label="TDA" )
-    plt.xlim(0,len(E_TDA))
+    plt.plot( np.arange(1,len(E_TDA)+1), dRPA, "-o", c="black", label="RPA" )
+    plt.plot( np.arange(1,len(E_TDA)+1), dTDA, "-o", c="red", label="TDA" )
+    plt.legend()
+    plt.xlim(1,len(E_TDA)+1)
     plt.xlabel("Electronic State Index",fontsize=15)
-    plt.ylabel("Excitation Energy Difference, RPA - TDA (eV)",fontsize=15)
-    plt.title("Electronic Dipole Matrix, |$\mu^{Tot.}_{\\alpha\\beta}$| (a.u.)",fontsize=15)
+    plt.ylabel("Excitation Energy (eV)",fontsize=15)
+    plt.title("RPA vs. TDA Excitation Energies",fontsize=15)
     plt.savefig(f"{DATA_DIR}/E_TDA_RPA_COMP.jpg", dpi=600)
     plt.clf()
 
     plt.plot( np.arange(len(E_TDA)), dRPA - dTDA )
     plt.xlabel("Electronic State Index",fontsize=15)
     plt.ylabel("Excitation Energy Difference, RPA - TDA (eV)",fontsize=15)
-    plt.xlim(0,len(E_TDA))
-    plt.title("Electronic Dipole Matrix, |$\mu^{Tot.}_{\\alpha\\beta}$| (a.u.)",fontsize=15)
+    plt.xlim(1,len(E_TDA)+1)
+    plt.title("RPA vs. TDA Excitation Energies",fontsize=15)
     plt.savefig(f"{DATA_DIR}/E_TDA_RPA_DIFF.jpg", dpi=600)
     plt.clf()
 
