@@ -1097,7 +1097,6 @@ def plot_diag_contributions():
             plt.tight_layout()
             plt.savefig(f"data_diagonal_density/MATTER_CONTRIBUTIONS_0J_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.jpg",dpi=600)
             plt.clf()
-    exit()
 
 def compute_diagonal_density_1r( Upol, TD_matter ):
     sp.call('mkdir -p data_diagonal_density',shell=True)
