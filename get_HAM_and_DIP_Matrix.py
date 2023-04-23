@@ -19,6 +19,8 @@ def plot_dipole(DIP,label):
         plt.savefig(f"{DATA_DIR}/DIP_{label}_{xyz_dict[dim]}.jpg", dpi=600)
         plt.clf()
 
+        np.savetxt( f"{DATA_DIR}/DIP_{label}_{xyz_dict[dim]}_0J.dat", DIP[0,:,dim]  )
+
     plt.imshow( np.sqrt( DIP[:,:,0]**2 + DIP[:,:,1]**2 + DIP[:,:,2]**2 ),origin='lower', cmap='afmhot_r')
     plt.colorbar(pad=0.01)
     plt.xlabel("Electronic State Index",fontsize=15)
@@ -27,24 +29,52 @@ def plot_dipole(DIP,label):
     plt.savefig(f"{DATA_DIR}/DIP_{label}_Total.jpg", dpi=600)
     plt.clf()
 
+    np.savetxt( f"{DATA_DIR}/DIP_{label}_Total_0J.dat", np.sqrt( DIP[0,:,0]**2 + DIP[0,:,1]**2 + DIP[0,:,2]**2  ) )
+
+
+def plot_dipole_square(DIP,label):
+
+    xyz_dict = { 0:'x', 1:'y', 2:'z' }
+    DIP_SQUARE = np.einsum( "JKd,KLd->JLd" , DIP[:,:,:], DIP[:,:,:] )
+    for dim in range(3):
+        plt.imshow( np.abs( DIP_SQUARE[:,:,dim] ),origin='lower', cmap='afmhot_r')
+        plt.colorbar(pad=0.01)
+        plt.xlabel("Electronic State Index",fontsize=15)
+        plt.ylabel("Electronic State Index",fontsize=15)
+        plt.title("Dipole Matrix Squared, $(\hat{\mu}^2)_{\\alpha \\beta}$"+f"({xyz_dict[dim]}) (a.u.)",fontsize=15)
+        plt.savefig(f"{DATA_DIR}/DIP_SQUARE_{label}_{xyz_dict[dim]}.jpg", dpi=600)
+        plt.clf()
+
+        np.savetxt( f"{DATA_DIR}/DIP_SQUARE_{label}_{xyz_dict[dim]}_0J.dat", DIP_SQUARE[0,:,dim]  )
+
+    plt.imshow( np.sqrt( DIP_SQUARE[:,:,0]**2 + DIP_SQUARE[:,:,1]**2 + DIP_SQUARE[:,:,2]**2 ),origin='lower', cmap='afmhot_r')
+    plt.colorbar(pad=0.01)
+    plt.xlabel("Electronic State Index",fontsize=15)
+    plt.ylabel("Electronic State Index",fontsize=15)
+    plt.title("Dipole Matrix Squared, $(\hat{\mu}^2)_{\\alpha \\beta}$"+f"(Total) (a.u.)",fontsize=15)
+    plt.savefig(f"{DATA_DIR}/DIP_SQUARE_{label}_Total.jpg", dpi=600)
+    plt.clf()
+
+    np.savetxt( f"{DATA_DIR}/DIP_SQUARE_{label}_Total_0J.dat", np.sqrt( DIP_SQUARE[0,:,0]**2 + DIP_SQUARE[0,:,1]**2 + DIP_SQUARE[0,:,2]**2)  )
+
+
 def plot_energies(E_TDA,E_RPA):
     dRPA = (E_RPA - E_RPA[0]) * 27.2114 # a.u. to eV
     dTDA = (E_TDA - E_TDA[0]) * 27.2114 # a.u. to eV
-    plt.plot( np.arange(1,len(E_TDA)+1), dRPA, "-o", c="black", label="RPA" )
-    plt.plot( np.arange(1,len(E_TDA)+1), dTDA, "-o", c="red", label="TDA" )
-    plt.legend()
-    plt.xlim(1,len(E_TDA)+1)
+    plt.plot( np.arange(len(E_TDA)), dRPA, c="black", label="RPA" )
+    plt.plot( np.arange(len(E_TDA)), dTDA, c="red", label="TDA" )
+    plt.xlim(0,len(E_TDA))
     plt.xlabel("Electronic State Index",fontsize=15)
-    plt.ylabel("Excitation Energy (eV)",fontsize=15)
-    plt.title("RPA vs. TDA Excitation Energies",fontsize=15)
+    plt.ylabel("Excitation Energy Difference, RPA - TDA (eV)",fontsize=15)
+    plt.title("Electronic Dipole Matrix, |$\mu^{Tot.}_{\\alpha\\beta}$| (a.u.)",fontsize=15)
     plt.savefig(f"{DATA_DIR}/E_TDA_RPA_COMP.jpg", dpi=600)
     plt.clf()
 
     plt.plot( np.arange(len(E_TDA)), dRPA - dTDA )
     plt.xlabel("Electronic State Index",fontsize=15)
     plt.ylabel("Excitation Energy Difference, RPA - TDA (eV)",fontsize=15)
-    plt.xlim(1,len(E_TDA)+1)
-    plt.title("RPA vs. TDA Excitation Energies",fontsize=15)
+    plt.xlim(0,len(E_TDA))
+    plt.title("Electronic Dipole Matrix, |$\mu^{Tot.}_{\\alpha\\beta}$| (a.u.)",fontsize=15)
     plt.savefig(f"{DATA_DIR}/E_TDA_RPA_DIFF.jpg", dpi=600)
     plt.clf()
 
@@ -201,7 +231,7 @@ sp.call(f"mkdir -p {DATA_DIR}", shell=True)
 GS_ENERGY = float( sp.check_output("grep 'SCF   energy in the final basis set' QCHEM.out | awk '{print $9}'", shell=True).decode().split()[0] )
 
 # Look for excitation energies from TDA and RPA
-sp.call("grep 'Excited state' QCHEM.out > "+f"{DATA_DIR}/EXC_ENERGIES.dat", shell=True)
+sp.call("grep 'excitation energy' QCHEM.out > "+f"{DATA_DIR}/EXC_ENERGIES.dat", shell=True)
 NROOTS = int( sp.check_output(f"wc -l {DATA_DIR}/EXC_ENERGIES.dat "+ "| awk '{print $1}'", shell=True).decode() )
 
 if ( RPA == True ): 
@@ -253,6 +283,7 @@ for state in range(NROOTS+1):
 
 np.save(f"{DATA_DIR}/DIPOLE_TDA.dat.npy", DIP)
 plot_dipole(DIP,"TDA")
+plot_dipole_square(DIP,"TDA")
 
 if ( RPA == True ):
 
@@ -277,6 +308,7 @@ if ( RPA == True ):
     
     np.save(f"{DATA_DIR}/DIPOLE_RPA.dat.npy", DIP)
     plot_dipole(DIP,"RPA")
+    plot_dipole_square(DIP,"RPA")
 
 
 
