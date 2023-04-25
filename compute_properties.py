@@ -36,10 +36,11 @@ def getGlobals():
     #A0_LIST = np.arange( 0.0, 0.2+0.001, 0.001 ) # For spectra
     #A0_LIST = np.arange( 0.0, 0.02+0.01, 0.01 ) # For orbitals
     #A0_LIST = np.array( [0.0, 0.05, 0.1, 0.15, 0.2] ) # For orbitals
-    #A0_LIST = np.array( [0.0, 0.1, 0.2, 0.3, 0.4, 0.5] ) # For orbitals
-    A0_LIST = np.arange( 0.0, 0.5+0.01, 0.01 ) # For orbitals
+    #A0_LIST = np.array( [0.0, 0.05, 0.2, 0.3, 0.4, 0.5] ) # For orbitals
+    #A0_LIST = np.arange( 0.0, 0.5+0.01, 0.01 ) # For orbitals
+    A0_LIST = np.array([0.0, 0.05, 0.1, 0.15, 0.2, 0.5]) # For orbitals
     NA0 = len(A0_LIST)
-    WC = 3.0   # eV
+    WC = 9.0   # eV
     NM = 50
     NF = 5
     RPA = True # Look for TD-DFT/RPA data rather than TD-DFT/TDA data
@@ -573,6 +574,8 @@ def get_TD_Data():
                 if ( state_j == state_k and state_j == 0 ):
                     GS_NORM = norm * 1.0
                     GS_NORM = round(GS_NORM/2)*2 # Round to nearest even electron number
+                    TD[state_j,:,:,:] *= GS_NORM/norm
+                    print("Renormalized ground state = ", np.sum( TD[state_j] ) * dLxyz[0]*dLxyz[1]*dLxyz[2])
                 else:
                     if ( abs( norm - GS_NORM ) > 0.25 ): # Check within quarter of an electron...
                         is_QCHEM = True
@@ -684,7 +687,7 @@ def getExansion(Upol):
                 plt.plot( A0_LIST, 1-np.abs(ROW_MATTER[alpha,:]), "-o", c='black', label=f"1 - $\\xi$({0},{alpha})" )
             else:
                 plt.plot( A0_LIST, np.abs(ROW_MATTER[alpha,:]), "-o", label=f"$\\xi$({0},{alpha})" )
-        plt.legend()
+                plt.legend()
         plt.xlim(A0_LIST[0], A0_LIST[-1])
         plt.ylim(0)
         plt.savefig(f"data_expansion/RHO_{pol}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.jpg",dpi=600)
@@ -1365,11 +1368,16 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
     # 2 (cavity) - 1 (cavity)
     # 4 (no cavity) - 0 (no cavity)
     # 4 (cavity) - 0 (cavity)
+    # 7 (no cavity) - 0 (no cavity)
+    # 13 (no cavity) - 0 (no cavity)
+    # 15 (no cavity) - 0 (no cavity)
+    # 43 (no cavity) - 0 (no cavity)
     
     option_names = ["00_cavity_no-cavity", "11_cavity_no-cavity", "21_cavity_no-cavity", \
                     "10_cavity", "10_no-cavity", "20_cavity", "21_cavity", \
-                    "40_no-cavity", "40_cavity"] # For output files
-    N_OPTIONS = 9 # Number of above conditions
+                    "40_no-cavity", "40_cavity","70_no-cavity","130_no-cavity",\
+                    "150_no-cavity","430_no-cavity"] # For output files
+    N_OPTIONS = 13 # Number of above conditions
 
     DIFF_DENSITY = np.zeros(( len(diag_density), N_OPTIONS, Nxyz[0],Nxyz[1],Nxyz[2] )) 
 
@@ -1409,7 +1417,25 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
     for A0IND, A0 in enumerate( A0_LIST ):
         DIFF_DENSITY[A0IND,8,:,:,:] = diag_density[A0IND,4,:,:,:] - diag_density[A0IND,0,:,:,:]
 
-    # Check the sum of the density difference --> Should this be zero ?
+    # 7 (no cavity) - 0 (no cavity)
+    for A0IND, A0 in enumerate( A0_LIST ):
+        DIFF_DENSITY[A0IND,9,:,:,:] = TDM_matter[7,7,:,:,:] - TDM_matter[0,0,:,:,:]
+
+    # 13 (no cavity) - 0 (no cavity)
+    for A0IND, A0 in enumerate( A0_LIST ):
+        DIFF_DENSITY[A0IND,10,:,:,:] = TDM_matter[13,13,:,:,:] - TDM_matter[0,0,:,:,:]
+
+    # 15 (no cavity) - 0 (no cavity)
+    for A0IND, A0 in enumerate( A0_LIST ):
+        DIFF_DENSITY[A0IND,11,:,:,:] = TDM_matter[15,15,:,:,:] - TDM_matter[0,0,:,:,:]
+
+    # 43 (no cavity) - 0 (no cavity)
+    for A0IND, A0 in enumerate( A0_LIST ):
+        DIFF_DENSITY[A0IND,12,:,:,:] = TDM_matter[43,43,:,:,:] - TDM_matter[0,0,:,:,:]
+
+
+
+    # Check the sum of the density difference --> Should this be zero ? Not sure actually.
     NORM = np.zeros(( N_OPTIONS, len(A0_LIST) ))
     for p in range(N_OPTIONS):
         for A0IND, A0 in enumerate( A0_LIST ):
@@ -1516,11 +1542,11 @@ def main():
     Epol, Upol, EAD, MU = get_HadMU()
 
     #### Density Analysis ####
-    #TDM_matter = get_TD_Data()
+    TDM_matter = get_TD_Data()
     #TD_pol_1r    = compute_Transition_density_1r( Upol, TDM_matter )
     #TD_pol_1r1q  = compute_Transition_density_1r1q( Upol, TDM_matter ) 
-    #diag_density = compute_diagonal_density_1r( Upol, TDM_matter )
-    #diff_density = compute_difference_density_1r( TDM_matter, diag_density )
+    diag_density = compute_diagonal_density_1r( Upol, TDM_matter )
+    diff_density = compute_difference_density_1r( TDM_matter, diag_density )
 
     #### Density Matrix Analysis ####
     #TDM_matter = get_TDM_Data()
@@ -1530,7 +1556,7 @@ def main():
     #NTO_matter = get_NTO_Data()
     #NTO_pol_1r = compute_NTO_1r( Upol, NTO_matter ) 
 
-    getExansion(Upol)
+    #getExansion(Upol)
 
     #eff_dipole_1 = getDipole_pow_1(Upol,MU)
     #eff_osc_str = getOscStr(Epol,eff_dipole_1)
