@@ -37,16 +37,16 @@ def getGlobals():
     #A0_LIST = np.arange( 0.0, 0.02+0.01, 0.01 ) # For orbitals
     #A0_LIST = np.array( [0.0, 0.05, 0.1, 0.15, 0.2] ) # For orbitals
     #A0_LIST = np.array( [0.0, 0.05, 0.2, 0.3, 0.4, 0.5] ) # For orbitals
-    #A0_LIST = np.arange( 0.0, 0.5+0.01, 0.01 ) # For orbitals
-    A0_LIST = np.array([0.0, 0.05, 0.1, 0.15, 0.2, 0.5]) # For orbitals
+    A0_LIST = np.arange( 0.0, 0.5+0.01, 0.01 )
+    #A0_LIST = np.array([0.0, 0.1, 0.2, 0.3, 0.4, 0.5]) # For orbitals
     NA0 = len(A0_LIST)
-    WC = 9.0   # eV
+    WC = 10.0   # eV
     NM = 50
     NF = 5
     RPA = True # Look for TD-DFT/RPA data rather than TD-DFT/TDA data
-    EVEC_INTS = np.array([ 1,0,0 ]) # Cavity Polarization Vector (input as integers without normalizing)
+    EVEC_INTS = np.array([ 0,1,0 ]) # Cavity Polarization Vector (input as integers without normalizing)
     #NPolCompute = NM # For spectra
-    NPolCompute = 6 # For Orbitals
+    NPolCompute = 2 # For Orbitals
     QGrid = np.arange( -20, 20, 0.2 )
     write_TD_Files = True
     print_level = 0 # 0 = Minimal, 1 = Some, 2 = Debugging --> This was a goal that never happened.
@@ -633,8 +633,8 @@ def getExansion(Upol):
 
     print ("Getting Projected Expansion Coefficients")
 
-    matter_threshold = 1e-3 # Only plot contributions that are more than {threshold} at some point
-    photon_threshold = 1e-3 # Only plot contributions that are more than {threshold} at some point
+    matter_threshold = 1e-2 # Only plot contributions that are more than {threshold} at some point
+    photon_threshold = 1e-2 # Only plot contributions that are more than {threshold} at some point
     U_0 = Upol[ : , :, 0 ]
 
     for pol in range( NPolCompute ):
@@ -653,13 +653,27 @@ def getExansion(Upol):
                         polIND2 = beta * NF + n
                         U0_MATTER[alpha, beta, A0IND] += U_p[A0IND, polIND1] * U_p[A0IND, polIND2 ]
 
-        if ( pol == 2 ):
-            print( U0_MATTER[1,1,:] )
+        # Save matter matrix for all coupling strengths
+        for A0IND, A0 in enumerate(A0_LIST):
+            A0 = round(A0,6)
+            np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_JK_{EVEC_OUT}_A0{A0}_WC{WC}_NM{NM}_NF{NF}.dat", U0_MATTER[:,:,A0IND], fmt="%1.5f" )
+            np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_JK_{EVEC_OUT}_A0{A0}_WC{WC}_NM{NM}_NF{NF}_ABS.dat", np.abs(U0_MATTER[:,:,A0IND]), fmt="%1.5f" )
+            #DATA = np.round( U0_MATTER[:,:,A0IND] / matter_threshold) * matter_threshold
+            DATA = U0_MATTER[:,:,A0IND] * 1.0
+            DATA[ np.abs(DATA) <= matter_threshold ] = 0.0
+            plt.imshow( np.abs(DATA), origin='lower', cmap='brg', norm=mpl.colors.LogNorm(vmin=matter_threshold, vmax=1.00) )
+            plt.colorbar(pad=0.01)
+            plt.xlabel("Electronic State $\\alpha$",fontsize=15)
+            plt.ylabel("Electronic State $\\beta$",fontsize=15)
+            plt.title(f"Electronic Contributions to $P_{pol}$",fontsize=15)
+            plt.savefig(f"data_expansion/RHO_{pol}{pol}_MATTER_JK_{EVEC_OUT}_A0{A0}_WC{WC}_NM{NM}_NF{NF}.jpg",dpi=600)
+            plt.clf()
 
         ROW_MATTER  = U0_MATTER[0,:,:]
         DIAG_MATTER = np.array([ np.array(U0_MATTER[J,J,:]) for J in range( NM ) ])
         np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", DIAG_MATTER, fmt="%1.5f" )
-        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", np.abs(ROW_MATTER), fmt="%1.5f" )
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}.dat", ROW_MATTER, fmt="%1.5f" )
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}_ABS.dat", np.abs(ROW_MATTER), fmt="%1.5f" )
         # Plot diagonal ones
         states = []
         for j in range( NM ):
@@ -686,7 +700,8 @@ def getExansion(Upol):
             if ( alpha == 0 and pol == 0 ):
                 plt.plot( A0_LIST, 1-np.abs(ROW_MATTER[alpha,:]), "-o", c='black', label=f"1 - $\\xi$({0},{alpha})" )
             else:
-                plt.plot( A0_LIST, np.abs(ROW_MATTER[alpha,:]), "-o", label=f"$\\xi$({0},{alpha})" )
+                #plt.plot( A0_LIST, np.abs(ROW_MATTER[alpha,:]), "-o", label=f"$\\xi$({0},{alpha})" )
+                plt.plot( A0_LIST, ROW_MATTER[alpha,:], "-o", label=f"$\\xi$({0},{alpha})" )
                 plt.legend()
         plt.xlim(A0_LIST[0], A0_LIST[-1])
         plt.ylim(0)
@@ -728,7 +743,6 @@ def getExansion(Upol):
         for j in range( NF ):
             if ( np.max(np.abs(ROW_PHOTON[j,:])) > photon_threshold ):
                 states.append(j)
-        #states = [ count for count,j in enumerate(ROW_PHOTON[:,-1] > photon_threshold) if j == True ]
         for count,alpha in enumerate(states):
             if ( alpha == 0 ):
                 plt.plot( A0_LIST, np.abs(ROW_PHOTON[alpha,:]), "-o", c='black', label=f"$\phi$({0},{alpha})" )
@@ -741,20 +755,26 @@ def getExansion(Upol):
         plt.clf()
 
         # Plot contributions from specific states as functions of A0
-        states = []
+        states_0J = []
+        states_JJ = []
         for j in range( NM ):
             if ( np.max(np.abs(ROW_MATTER[j,:])) > matter_threshold ):
-                states.append(j)
-        #states = [ count for count,j in enumerate(ROW_MATTER[:,-1] > matter_threshold) if j == True ]
+                states_0J.append(j)
+        for j in range( NM ):
+            if ( np.max(np.abs(DIAG_MATTER[j,:])) > matter_threshold ):
+                states_JJ.append(j)
 
-        output_JJ = np.zeros(( len(states), len(A0_LIST) ))
-        output_0J = np.zeros(( len(states), len(A0_LIST) ))
+        output_0J = np.zeros(( len(states_0J), len(A0_LIST) ))
+        output_JJ = np.zeros(( len(states_JJ), len(A0_LIST) ))
         for A0IND in range( len(A0_LIST) ):
-            for count, state in enumerate(states):
-                output_JJ[count, :] = DIAG_MATTER[state,:]
+            for count, state in enumerate(states_0J):
                 output_0J[count, :] = ROW_MATTER[state,:]
-        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}_A0.dat", output_JJ.T, fmt="%1.5f", header=" ".join(map(str,states)) )
-        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}_A0.dat", np.abs(output_0J).T, fmt="%1.5f", header=" ".join(map(str,states)) )
+        for A0IND in range( len(A0_LIST) ):
+            for count, state in enumerate(states_JJ):
+                output_JJ[count, :] = DIAG_MATTER[state,:]
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_JJ_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}_A0.dat", output_JJ.T, fmt="%1.5f", header=" ".join(map(str,states_JJ)) )
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}_A0.dat", output_0J.T, fmt="%1.5f", header=" ".join(map(str,states_0J)) )
+        np.savetxt( f"data_expansion/RHO_{pol}{pol}_MATTER_0J_{EVEC_OUT}_A0SCAN_WC{WC}_NM{NM}_NF{NF}_A0_ABS.dat", np.abs(output_0J).T, fmt="%1.5f", header=" ".join(map(str,states_0J)) )
 
         states = []
         for j in range( NF ):
@@ -1051,61 +1071,11 @@ def compute_NTO_1r( Upol, NTO_matter ):
                                     outArray = []
                     f.close()
 
-def plot_diag_contributions():
-
-    for A0_ind,A0 in enumerate( A0_LIST ):
-        for state in range( NPolCompute ):
-            A0 = round(A0,4)
-
-            MATTER_CONT = np.zeros(( NM,NM ))
-            read_flag = False
-
-            lines = open(f"data_diagonal_density/diagonal_density_contributions_{EVEC_OUT}_WC{WC}.dat","r").readlines()
-            for count, line in enumerate( lines ):
-                t = line.split()
-                if ( t[:7] == "Non-zero contributions to diagonal Density for state".split() ):
-                    if ( t[7] == f"P{state}" and t[11] == f"{A0}:" ):
-                        read_flag = True
-                        continue
-                    else:
-                        read_flag = False
-                if ( t[:3] == "n, j, k,".split() ):
-                    continue
-                if ( read_flag == True ):
-                    if ( t[0] == "MISSING:" ):
-                        J = int( t[2] )
-                        K = int( t[3] )
-                        MATTER_CONT[J,K] = float( t[-1] )
-                    else:
-                        n = int( t[0] )
-                        J = int( t[1] )
-                        K = int( t[2] )
-                        MATTER_CONT[J,K] += float( t[-1] )
-
-            np.savetxt(f"data_diagonal_density/MATTER_CONTRIBUTIONS_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.dat", MATTER_CONT)
-            plt.imshow( MATTER_CONT, origin='lower', cmap='brg', norm=mpl.colors.LogNorm(vmin=0.01, vmax=1.00) )
-            plt.colorbar(pad=0.01)
-            plt.xlabel("Electronic State $\\alpha$",fontsize=15)
-            plt.ylabel("Electronic State $\\beta$",fontsize=15)
-            plt.title(f"Electronic Contributions to $P_{state}$",fontsize=15)
-            plt.savefig(f"data_diagonal_density/MATTER_CONTRIBUTIONS_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.jpg",dpi=600)
-            plt.clf()
-
-            np.savetxt(f"data_diagonal_density/MATTER_CONTRIBUTIONS_0J_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.dat", MATTER_CONT[0,:])
-            plt.stem( np.log(np.abs(MATTER_CONT[0,:])+1e-6)/np.log(10), bottom=-10 )
-            plt.ylim(-3,0)
-            plt.xlabel("Electronic State $\\alpha$",fontsize=15)
-            plt.ylabel("LOG[$\sum_n$ C(0,n) C($\\alpha$ n)]",fontsize=15)
-            plt.title(f"Electronic Coherence (0-->$\\alpha$) Contributions to $|P_{state}><P_{state}|$",fontsize=15)
-            plt.tight_layout()
-            plt.savefig(f"data_diagonal_density/MATTER_CONTRIBUTIONS_0J_P{state}_{EVEC_OUT}_A0{A0}_WC{WC}.jpg",dpi=600)
-            plt.clf()
 
 def compute_diagonal_density_1r( Upol, TD_matter ):
     sp.call('mkdir -p data_diagonal_density',shell=True)
 
     DIAG_DENSITY = get_diag_density_fast_1r( Upol, TD_matter, NPolCompute ).reshape(( len(Upol), NPolCompute, Nxyz[0],Nxyz[1],Nxyz[2] ))
-    plot_diag_contributions()
 
 
     if ( write_TD_Files == True ):
@@ -1377,7 +1347,7 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
                     "10_cavity", "10_no-cavity", "20_cavity", "21_cavity", \
                     "40_no-cavity", "40_cavity","70_no-cavity","130_no-cavity",\
                     "150_no-cavity","430_no-cavity"] # For output files
-    N_OPTIONS = 13 # Number of above conditions
+    N_OPTIONS = 1 # Number of above conditions
 
     DIFF_DENSITY = np.zeros(( len(diag_density), N_OPTIONS, Nxyz[0],Nxyz[1],Nxyz[2] )) 
 
@@ -1385,6 +1355,7 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
     for A0IND, A0 in enumerate( A0_LIST ):
         DIFF_DENSITY[A0IND,0,:,:,:] = diag_density[A0IND,0,:,:,:] - TDM_matter[0,0,:,:,:]
 
+    """
     # 1 (cavity) - 1 (no cavity)
     for A0IND, A0 in enumerate( A0_LIST ):
         DIFF_DENSITY[A0IND,1,:,:,:] = diag_density[A0IND,1,:,:,:] - TDM_matter[1,1,:,:,:]
@@ -1432,7 +1403,7 @@ def compute_difference_density_1r( TDM_matter, diag_density ):
     # 43 (no cavity) - 0 (no cavity)
     for A0IND, A0 in enumerate( A0_LIST ):
         DIFF_DENSITY[A0IND,12,:,:,:] = TDM_matter[43,43,:,:,:] - TDM_matter[0,0,:,:,:]
-
+    """
 
 
     # Check the sum of the density difference --> Should this be zero ? Not sure actually.
@@ -1542,21 +1513,21 @@ def main():
     Epol, Upol, EAD, MU = get_HadMU()
 
     #### Density Analysis ####
-    TDM_matter = get_TD_Data()
+    #TDM_matter = get_TD_Data()
     #TD_pol_1r    = compute_Transition_density_1r( Upol, TDM_matter )
     #TD_pol_1r1q  = compute_Transition_density_1r1q( Upol, TDM_matter ) 
-    diag_density = compute_diagonal_density_1r( Upol, TDM_matter )
-    diff_density = compute_difference_density_1r( TDM_matter, diag_density )
+    #diag_density = compute_diagonal_density_1r( Upol, TDM_matter )
+    #diff_density = compute_difference_density_1r( TDM_matter, diag_density )
 
     #### Density Matrix Analysis ####
     #TDM_matter = get_TDM_Data()
-    #TDM_pol_1r    = compute_Transition_density_matrix_1r( Upol, TDM_matter ) 
+    #TDM_pol_1r = compute_Transition_density_matrix_1r( Upol, TDM_matter ) 
 
     #### NTO ANALYSIS ####
     #NTO_matter = get_NTO_Data()
     #NTO_pol_1r = compute_NTO_1r( Upol, NTO_matter ) 
 
-    #getExansion(Upol)
+    getExansion(Upol)
 
     #eff_dipole_1 = getDipole_pow_1(Upol,MU)
     #eff_osc_str = getOscStr(Epol,eff_dipole_1)
