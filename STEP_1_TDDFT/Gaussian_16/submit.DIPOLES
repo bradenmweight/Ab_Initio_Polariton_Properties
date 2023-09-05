@@ -1,0 +1,13 @@
+#!/bin/bash
+#SBATCH -p debug
+#SBATCH -J DIPOLES
+#SBATCH -o output.slurm
+#SBATCH -t 1:00:00
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=12
+#SBATCH --mem 30GB
+
+python3 get_HAM_and_DIP_Matrix.py
+
+
+

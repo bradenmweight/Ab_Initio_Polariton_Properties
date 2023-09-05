@@ -1,0 +1,105 @@
+import numpy as np
+import subprocess as sp
+from matplotlib import pyplot as plt
+import os
+
+def get_Globals():
+    global DATA_DIR, MULTIWFN, NSTATES
+    DATA_DIR = "PLOTS_DATA"
+    MULTIWFN = "$HOME/Multiwfn_3.7_bin_Linux_noGUI/Multiwfn"
+    NExcStates = 50 # Number of excited states in TD-DFT calculation
+    
+    # Do not change below here
+    NSTATES    = NExcStates + 1
+    sp.call(f"mkdir {DATA_DIR}", shell=True)
+
+def run_Multiwfn():
+    # Makes permanent dipoles
+    STRING = f'{MULTIWFN} << EOF\ngeometry.fchk\n18\n5\ngeometry.out\n2\nEOF'
+    sp.call(STRING,shell=True)
+
+    # Makes transition dipoles
+    STRING = f'{MULTIWFN} << EOF\ngeometry.fchk\n18\n5\ngeometry.out\n4\nEOF'
+    sp.call(STRING,shell=True)
+
+def get_Energies_Dipoles():
+    # Need to run Multiwfn ( geometry.fchk 18, 5, geometry.out 2 ) ( 18, 5, geometry.out, 4 )
+    run_Multiwfn()
+
+    DIP_MAT     = np.zeros(( NSTATES, NSTATES, 3 )) # All dipole matrix elements
+    E_ADIABATIC = np.zeros( NSTATES ) # Adiabatic molecular energies
+
+    # Read in permanent dipole moments (in a.u.)
+    permFile = open("dipmom.txt","r").readlines()
+    DIP_MAT[0,0] = np.array( permFile[1].split()[6:9] )
+    permFile = np.array( permFile[5:NSTATES+4] )
+    exc_state_perm_dips = np.array( [ permFile[j].split()[1:4] for j in range(NSTATES-1) ] ).astype(float)
+    for j in range( NSTATES-1 ):
+        DIP_MAT[1+j,1+j] = exc_state_perm_dips[j] # CHECK THIS WITH POLAR MOLECULAR SYSTEM
+
+    # Read in transition energies (in eV)
+    E_TRANSITION = np.array([ permFile[j].split()[4] for j in range(NSTATES-1) ]).astype(float) # These are in eV
+
+    # Get ground state energy from SCF cycle
+    sp.call(" grep 'SCF Done' geometry.out > GS_Total_Energy.dat ",shell=True) # FOR HF/DFT etc.
+    #sp.call(" grep 'Wavefunction amplitudes converged' geometry.out > GS_Total_Energy.dat ",shell=True) # FOR CCSD/MP2/etc.
+    GS_Energy = float(open("GS_Total_Energy.dat","r").readlines()[0].split()[4]) * 27.2114 # Convert to eV
+    sp.call(" rm GS_Total_Energy.dat ",shell=True)
+
+    E_ADIABATIC[0] = GS_Energy # Shift states by total energy of ground state at this R
+    for j in range( NSTATES-1 ):
+        E_ADIABATIC[1+j] = GS_Energy + E_TRANSITION[j] # In eV
+    
+
+    # Read in transition dipole moments
+    transDipFile = open("transdipmom.txt","r").readlines()
+    for line in transDipFile:
+        t = line.split()
+        if (  len(t) == 7 and t[0] != "i" and t[0] != "Transition" ):
+            i = int( t[0] )
+            j = int( t[1] )
+            if ( i <= NSTATES-1 and j <= NSTATES-1 and i != j ): # Exclude terms from ground state and permanant dipoles
+                dxyz = np.array( t[2:5] )
+                DIP_MAT[ i, j ] = dxyz
+                DIP_MAT[ j, i ] = dxyz
+
+    """
+    # Read in EOM-CCSD Ground-to-excited dipole moments. These should be exact, but we neglect excited-to-ground transition dipole moments.
+    sp.call(''' grep "Ground to excited state transition electric dipole moments" geometry.out -A 31 | tail -n 30 > G2E_TdDip.dat ''', shell=True )
+    transDipFile = np.loadtxt("G2E_TdDip.dat")[:,1:4] # Only <g|r|ej> terms
+    for j in range(NExcStates):
+        DIP_MAT[ 0, j+1 ] = transDipFile[j]
+        DIP_MAT[ j+1, 0 ] = DIP_MAT[ 0, j+1 ]
+    """
+
+    for d in [0,1,2]:
+        plt.imshow( np.abs( DIP_MAT[:,:,d] ), origin='lower' )
+        plt.colorbar()
+        plt.title("Dipole (a.u.)")
+        if ( d == 0 ):
+            plt.savefig(f"{DATA_DIR}/DIP_MAT_x.jpg")
+        if ( d == 1 ):
+            plt.savefig(f"{DATA_DIR}/DIP_MAT_y.jpg")
+        if ( d == 2 ):
+            plt.savefig(f"{DATA_DIR}/DIP_MAT_z.jpg")
+        plt.clf()
+
+    outDipFile = open(f"{DATA_DIR}/DIP_MAT_ssddd.dat","w")
+    for i in range( NSTATES ):
+        for j in range( i, NSTATES ):
+            outDipFile.write(f"{i} {j} {DIP_MAT[i,j,0]} {DIP_MAT[i,j,1]} {DIP_MAT[i,j,2]}\n")
+    outDipFile.close()
+    np.savetxt(f"{DATA_DIR}/DIP_MAT_x.dat",DIP_MAT[:,:,0])
+    np.savetxt(f"{DATA_DIR}/DIP_MAT_y.dat",DIP_MAT[:,:,1])
+    np.savetxt(f"{DATA_DIR}/DIP_MAT_z.dat",DIP_MAT[:,:,2])
+
+    outExcFile = open(f"{DATA_DIR}/ADIABATIC_ENERGIES.dat","w")
+    for j in range( NSTATES ):
+        outExcFile.write( f"{j}  {E_ADIABATIC[j]}\n" ) # Write in eV
+
+
+
+
+if ( __name__ == "__main__" ):
+    get_Globals()
+    get_Energies_Dipoles()
