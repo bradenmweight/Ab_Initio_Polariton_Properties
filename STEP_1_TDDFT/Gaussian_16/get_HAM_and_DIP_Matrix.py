@@ -3,6 +3,19 @@ import subprocess as sp
 from matplotlib import pyplot as plt
 import os
 
+# Created by Braden M. Weight, 2022
+
+"""
+Note: Requires the use of Multwfn to get Gaussian dipole matrix elements
+Multiwfn Homepage -- http://sobereva.com/multiwfn/
+Multiwfn Download -- http://sobereva.com/multiwfn/download.html
+Dipoles are computed at TDA level regardless of whether Gaussian did TDA or RPA.
+
+Example Gaussian Input:
+    #p B3LYP/6-31G*
+    #p TD=(singlets,nstates=50) IOp(6/8=3) IOp(9/40=4)
+"""
+
 def get_Globals():
     global DATA_DIR, MULTIWFN, NSTATES
     DATA_DIR = "PLOTS_DATA"
@@ -50,7 +63,6 @@ def get_Energies_Dipoles():
     for j in range( NSTATES-1 ):
         E_ADIABATIC[1+j] = GS_Energy + E_TRANSITION[j] # In eV
     
-
     # Read in transition dipole moments
     transDipFile = open("transdipmom.txt","r").readlines()
     for line in transDipFile:
@@ -77,23 +89,24 @@ def get_Energies_Dipoles():
         plt.colorbar()
         plt.title("Dipole (a.u.)")
         if ( d == 0 ):
-            plt.savefig(f"{DATA_DIR}/DIP_MAT_x.jpg")
+            plt.savefig(f"{DATA_DIR}/DIPOLE_RPA_x.jpg")
         if ( d == 1 ):
-            plt.savefig(f"{DATA_DIR}/DIP_MAT_y.jpg")
+            plt.savefig(f"{DATA_DIR}/DIPOLE_RPA_y.jpg")
         if ( d == 2 ):
-            plt.savefig(f"{DATA_DIR}/DIP_MAT_z.jpg")
+            plt.savefig(f"{DATA_DIR}/DIPOLE_RPA_z.jpg")
         plt.clf()
 
-    outDipFile = open(f"{DATA_DIR}/DIP_MAT_ssddd.dat","w")
+    outDipFile = open(f"{DATA_DIR}/DIPOLE_RPA_ssddd.dat","w")
     for i in range( NSTATES ):
         for j in range( i, NSTATES ):
             outDipFile.write(f"{i} {j} {DIP_MAT[i,j,0]} {DIP_MAT[i,j,1]} {DIP_MAT[i,j,2]}\n")
     outDipFile.close()
-    np.savetxt(f"{DATA_DIR}/DIP_MAT_x.dat",DIP_MAT[:,:,0])
-    np.savetxt(f"{DATA_DIR}/DIP_MAT_y.dat",DIP_MAT[:,:,1])
-    np.savetxt(f"{DATA_DIR}/DIP_MAT_z.dat",DIP_MAT[:,:,2])
+    np.savetxt(f"{DATA_DIR}/DIPOLE_RPA_x.dat",DIP_MAT[:,:,0])
+    np.savetxt(f"{DATA_DIR}/DIPOLE_RPA_y.dat",DIP_MAT[:,:,1])
+    np.savetxt(f"{DATA_DIR}/DIPOLE_RPA_z.dat",DIP_MAT[:,:,2])
+    np.save(f"{DATA_DIR}/DIPOLE_RPA.dat.npy",DIP_MAT[:,:,:])
 
-    outExcFile = open(f"{DATA_DIR}/ADIABATIC_ENERGIES.dat","w")
+    outExcFile = open(f"{DATA_DIR}/ADIABATIC_ENERGIES_RPA.dat","w")
     for j in range( NSTATES ):
         outExcFile.write( f"{j}  {E_ADIABATIC[j]}\n" ) # Write in eV
 
