@@ -1,0 +1,29 @@
+#!/bin/bash
+#SBATCH -p debug
+#SBATCH -J PF
+#SBATCH -o output.slurm
+#SBATCH -t 1:00:00
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=1
+##SBATCH --mem 1GB
+
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+PF_CODE=/scratch/bweight/software/Ab_Initio_Polariton_Properties/STEP_2_PauliFierz/SINGLE_MOLECULE/
+
+A0=$1
+NM=$2
+NF=$3
+NWC=$4
+WC_MIN=$5
+WC_MAX=$6
+dWC=$7
+E_POL=$8
+
+for (( w=0; w<=NWC; w++ )); do
+    WC=$( bc -l <<< $w*$dWC+$WC_MIN )
+    echo "A0 = $A0 a.u.; wc = $WC eV"
+    python3 ${PF_CODE}/Pauli-Fierz_DdotE.py $NM $NF $A0 $WC $E_POL
+done
+

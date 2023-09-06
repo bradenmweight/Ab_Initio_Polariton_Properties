@@ -106,12 +106,8 @@ def get_Energies_Dipoles():
     np.savetxt(f"{DATA_DIR}/DIPOLE_RPA_z.dat",DIP_MAT[:,:,2])
     np.save(f"{DATA_DIR}/DIPOLE_RPA.dat.npy",DIP_MAT[:,:,:])
 
-    outExcFile = open(f"{DATA_DIR}/ADIABATIC_ENERGIES_RPA.dat","w")
-    for j in range( NSTATES ):
-        outExcFile.write( f"{j}  {E_ADIABATIC[j]}\n" ) # Write in eV
-
-
-
+    np.savetxt(f"{DATA_DIR}/ADIABATIC_ENERGIES_RPA.dat", E_ADIABATIC/27.2114)
+    np.savetxt(f"{DATA_DIR}/ADIABATIC_ENERGIES_RPA_TRANSITION.dat", (E_ADIABATIC-E_ADIABATIC[0])/27.2114)
 
 if ( __name__ == "__main__" ):
     get_Globals()
