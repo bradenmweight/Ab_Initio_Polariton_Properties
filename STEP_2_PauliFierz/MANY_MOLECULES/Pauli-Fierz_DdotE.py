@@ -11,7 +11,10 @@ import subprocess as sp
 def get_globals():
     global NEL, NF, A0, wc_eV, wc_AU
     global EVEC_INTS, EVEC_NORM, EVEC_OUT
-    global RPA, WRITE_WFNS
+    global RPA, WRITE_WFNS, SCALE_A0
+
+    SCALE_A0 = True # A0 --> A0 / sqrt(NMOL)
+    print("\n\tAttn: Rescaling coupling strength. A0 --> A0 / sqrt(NMOL)\n")
 
     NEL        = int( sys.argv[1] )  # Number of Electronic States (including ground state)
     NF         = int( sys.argv[2] )  # Number of Fock Basis States
@@ -25,8 +28,6 @@ def get_globals():
     wc_AU     = wc_eV / 27.2114
     EVEC_NORM = EVEC_INTS / np.linalg.norm(EVEC_INTS)
     EVEC_OUT = "_".join(map(str,EVEC_INTS))
-
-    sp.call("mkdir -p data_PF", shell=True)
 
 def get_a_op(nf):
     a = np.zeros((nf,nf))
@@ -52,58 +53,100 @@ def get_H_PF(EAD, MU):
     TMP  = 0 # Make TMP exist throughout
 
     #### H_EL ####
-    for mol_j in range( NMOL ):
+    for A in range( NMOL ):
         # FIRST TERM
-        if ( mol_j == 0 ):
-            TMP = np.diag( EAD[mol_j,:] )
+        if ( A == 0 ):
+            TMP = np.diag( EAD[A,:] )
         else:
             TMP = I_el
         # N-1 TERMS
-        for mol_k in range( 1, NMOL ):
-            if ( mol_j == mol_k ):
-                TMP = np.kron( TMP, np.diag( EAD[mol_j,:] ) )
+        for B in range( 1, NMOL ):
+            if ( A == B ):
+                TMP = np.kron( TMP, np.diag( EAD[A,:] ) )
             else:
                 TMP = np.kron( TMP, I_el )
         H_PF += np.kron( TMP, I_ph )
 
     #### H_PH ####
-    for mol_j in range( NMOL ):
+    for A in range( NMOL ):
         # FIRST TERM
         TMP = I_el
         # N-1 TERMS
-        for mol_k in range( 1, NMOL ):
+        for B in range( 1, NMOL ):
             TMP = np.kron( TMP, I_el )
     H_PF += np.kron( TMP, np.diag( np.arange( NF ) * wc_AU ) )
 
     #### H_INT ####
-    for mol_j in range( NMOL ):
+    for A in range( NMOL ):
         # FIRST TERM
-        if ( mol_j == 0 ):
-            TMP = MU[mol_j]
+        if ( A == 0 ):
+            TMP = MU[A]
         else:
             TMP = I_el
         # N-1 TERMS
-        for mol_k in range( 1, NMOL ):
-            if ( mol_j == mol_k ):
-                TMP = np.kron( TMP, MU[mol_j] )
+        for B in range( 1, NMOL ):
+            if ( A == B ):
+                TMP = np.kron( TMP, MU[A] )
             else:
                 TMP = np.kron( TMP, I_el )
-        H_PF += kron_prod(TMP, q_op) * wc_AU * A0 # Interaction
+        if ( SCALE_A0 == True ):
+            H_PF += kron_prod(TMP, q_op) * wc_AU * A0 / np.sqrt( NMOL )
+        else:
+            H_PF += kron_prod(TMP, q_op) * wc_AU * A0
 
     #### H_DSE ####
-    for mol_j in range( NMOL ):
-        # FIRST TERM
-        if ( mol_j == 0 ):
-            TMP = MU[mol_j]
+    # Diagonal Terms (MOL A <--> MOL A)
+    for A in range( NMOL ): # First Term
+        #print( "DSE (Diag.): A", A )
+        if ( A == 0 ):
+            TMP = MU[A] @ MU[A]
         else:
             TMP = I_el
         # N-1 TERMS
-        for mol_k in range( 1, NMOL ):
-            if ( mol_j == mol_k ):
-                TMP = np.kron( TMP, MU[mol_k] )
+        for B in range( 1, NMOL ):
+            if ( A == B ):
+                TMP = np.kron( TMP, MU[B] @ MU[B] )
             else:
-                TMP = np.kron( TMP, MU[mol_k] )
-        H_PF += np.kron( TMP, I_ph ) * wc_AU * A0**2
+                TMP = np.kron( TMP, I_el )
+
+        if ( SCALE_A0 == True ):
+            H_PF += np.kron( TMP, I_ph ) * wc_AU * A0 ** 2 / NMOL
+        else:
+            H_PF += np.kron( TMP, I_ph ) * wc_AU * A0**2
+
+    # Off-diagonal Terms (MOL A < MOL B)
+    if ( NMOL >= 2 ):
+        for A in range( NMOL ): # First Term
+            for B in range( A+1, NMOL ):
+                TMP = 0
+
+                # Identites up to first position
+                for C in range( A ):
+                    if ( C == 0 ): 
+                        TMP = I_el
+                    else:
+                        TMP = np.kron( TMP, I_el )
+
+                TMP = np.kron( TMP, MU[A] ) # Dipole for molecule A
+
+                # Identites up to second position
+                for C in range( A+1,B ):
+                    TMP = np.kron( TMP, I_el )
+                
+                TMP = np.kron( TMP, MU[B] ) # Dipole for molecule B
+                
+                # Identites for the rest of the molecules
+                for C in range( B+1, NMOL ):
+                    TMP = np.kron( TMP, I_el )
+            
+                # Factor "2" is for double counting A != B terms
+                if ( SCALE_A0 == True ):
+                    H_PF += 2 * np.kron( TMP, I_ph ) * wc_AU * A0 ** 2 / NMOL
+                else:
+                    H_PF += 2 * np.kron( TMP, I_ph ) * wc_AU * A0**2
+
+
+
 
     if ( H_PF.size * H_PF.itemsize * 10 ** -9 > 0.5 ): # If H_PF larger than 0.5 GB, tell the user.
         print(f"\tWARNING!!! Large Matrix" )
@@ -116,6 +159,7 @@ def get_ADIABATIC_DATA():
     global NMOL
     MOLECULE_DATA = open("./MOLECULE_DATA.dat","r").readlines() # Each line points to different molecule's TD-DFT folder
     NMOL = len( MOLECULE_DATA )
+    sp.call(f"mkdir -p data_PF_NMOL_{NMOL}", shell=True)
 
     EAD  = np.zeros(( NMOL,NEL ))
     MU  = np.zeros(( NMOL,NEL,NEL,3 ))
@@ -137,16 +181,17 @@ def SolvePlotandSave(H_PF,EAD,MU):
         E, U = np.linalg.eigh( H_PF ) # This is exact solution --> Should we ever try Davidson diagonalization ?
         
         # Save Data
-        np.savetxt( f"data_PF/E_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NEL_{NEL}.dat", E * 27.2114 )
+        np.savetxt( f"data_PF_NMOL_{NMOL}/E_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NEL_{NEL}.dat", E * 27.2114 )
+        np.savetxt( f"data_PF_NMOL_{NMOL}/E_TRANS_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NEL_{NEL}.dat", (E-E[0]) * 27.2114 )
         if ( WRITE_WFNS ):
-            #np.savetxt( f"data_PF/U_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NEL_{NEL}.dat", U ) # These can be large
-            np.save( f"data_PF/U_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NEL_{NEL}.dat", U ) # Binary is smaller
+            #np.savetxt( f"data_PF_NMOL_{NMOL}/U_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NEL_{NEL}.dat", U ) # These can be large
+            np.save( f"data_PF_NMOL_{NMOL}/U_{EVEC_OUT}_A0_{round(A0,6)}_WC_{round(wc_eV,6)}_NF_{NF}_NEL_{NEL}.dat", U ) # Binary is smaller
 
         print ( A0, wc_eV )
 
         # Save original EAD and MU for convenience
-        np.savetxt( f"data_PF/EAD.dat", EAD * 27.2114 )
-        np.save( f"data_PF/MU.dat", MU )
+        np.savetxt( f"data_PF_NMOL_{NMOL}/EAD.dat", EAD * 27.2114 )
+        np.save( f"data_PF_NMOL_{NMOL}/MU.dat", MU )
 
 def main():
     get_globals()
