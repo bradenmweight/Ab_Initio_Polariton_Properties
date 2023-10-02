@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH -p exciton -A exciton
+#SBATCH -J PF
+#SBATCH -o output.slurm
+#SBATCH -t 1:00:00
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=1
+#SBATCH --mem 5GB
+
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
+
+for WC in {1.0,2.0}; do
+    echo "$1 ${WC}"
+    python3 Pauli-Fierz_DdotE.py $1 ${WC}
+done
