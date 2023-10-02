@@ -26,3 +26,12 @@ for (( a=0; a<=NA0; a++ )); do
         A0=$( bc -l <<< $a*$dA0+$A0_MIN )
         sbatch submit.polariton ${A0} ${NM} ${NF} ${NWC} ${WC_MIN} ${WC_MAX} ${dWC} ${E_POL}
 done
+
+
+
+#### FOR THETA/PHI SCAN ####
+for A in {0.1,0.2,0.3,0.4}; do
+    sbatch submit.polariton ${A}
+done
+
+
