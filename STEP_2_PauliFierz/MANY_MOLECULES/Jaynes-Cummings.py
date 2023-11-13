@@ -91,7 +91,7 @@ def get_H_JC(EAD, MU):
     for A in range( NMOL ):
         # FIRST TERM
         if ( A == 0 ):
-            TMP = MU[A]
+            TMP = MU_plus[A]
         else:
             TMP = I_el
         # N-1 TERMS
@@ -109,7 +109,7 @@ def get_H_JC(EAD, MU):
     for A in range( NMOL ):
         # FIRST TERM
         if ( A == 0 ):
-            TMP = MU[A]
+            TMP = MU_minus[A]
         else:
             TMP = I_el
         # N-1 TERMS
