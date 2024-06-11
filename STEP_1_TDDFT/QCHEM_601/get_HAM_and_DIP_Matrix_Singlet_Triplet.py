@@ -4,8 +4,25 @@ from matplotlib import pyplot as plt
 import os, sys
 
 
-RPA = True # TDA is always printed... if RPA=True, look for RPA results
+RPA = False # TDA is always printed... if RPA=True, look for RPA results
 DATA_DIR = "PLOTS_DATA"
+EXC_TYPE = "Singlet" # "Singlet" or "Triplet" 
+GS_MULT  = 3 # Ground state multiplicity 1 (Singlet), 2 (Doublet), 3 (Triplet), 4, 5, ...
+
+
+
+##### DO NOT CHANGE BELOW HERE #####
+sp.call(f"mkdir -p {DATA_DIR}", shell=True)
+if ( EXC_TYPE.lower() == "triplet" ):
+    if ( GS_MULT == 1 ):
+        EXC_TYPE = " Triplet"
+    else:
+        EXC_TYPE = ""
+else:
+    if ( GS_MULT == 1 ):
+        EXC_TYPE = " Singlet"
+    else:
+        EXC_TYPE = ""
 
 def plot_dipole(DIP,label):
 
@@ -119,7 +136,6 @@ def get_nuclear_dipole( MU_00_EL ):
 
     return MU_NUC
 
-sp.call(f"mkdir -p {DATA_DIR}", shell=True)
 
 def get_Energies_Dipoles():
     global NROOTS
@@ -162,13 +178,17 @@ def get_Energies_Dipoles():
 
     ##### Look for dipoles from TDA #####
     DIP[0,0,:] = np.array( sp.check_output("grep -A 4 'Electron Dipole Moments of Ground State' QCHEM.out | tail -n 1", shell=True).decode().split()[1:] ).astype(float)
-    DIP[np.arange(1,NROOTS+1), np.arange(1,NROOTS+1),:]  = np.array( sp.check_output(f"grep -m 1 -A {3+NROOTS} 'Electron Dipole Moments of Singlet Excited State' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,4)[:,1:]
-    DIP[0, np.arange(1,NROOTS+1),:] = np.array( sp.check_output(f"grep -m 1 -A {3+NROOTS} 'Transition Moments Between Ground and Singlet Excited States' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,6)[:,2:5]
-    DIP[np.arange(1,NROOTS+1),0,:] = np.array( sp.check_output(f"grep -m 1 -A {3+NROOTS} 'Transition Moments Between Ground and Singlet Excited States' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,6)[:,2:5]
+
+    try:
+        DIP[np.arange(1,NROOTS+1), np.arange(1,NROOTS+1),:]  = np.array( sp.check_output(f"grep -m 1 -A {3+NROOTS} 'Electron Dipole Moments of{EXC_TYPE} Excited State' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,4)[:,1:]
+    except ValueError:
+        assert( False ), "User said to search for Triplet states. But I found Singlet states. Please check."
+    DIP[0, np.arange(1,NROOTS+1),:] = np.array( sp.check_output(f"grep -m 1 -A {3+NROOTS} 'Transition Moments Between Ground and{EXC_TYPE} Excited States' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,6)[:,2:5]
+    DIP[np.arange(1,NROOTS+1),0,:] = np.array( sp.check_output(f"grep -m 1 -A {3+NROOTS} 'Transition Moments Between Ground and{EXC_TYPE} Excited States' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,6)[:,2:5]
 
     # Excited-to-excited needs more work to be done...need a loop
     NTERMS = NROOTS * (NROOTS-1) // 2 # Upper triangle without diagonal terms
-    tmp = np.array( sp.check_output(f"grep -m 1 -A {3+NTERMS} 'Transition Moments Between Singlet Excited States' QCHEM.out | tail -n {NTERMS}", shell=True).decode().split() ).astype(float).reshape(NTERMS,6)[:,:5]
+    tmp = np.array( sp.check_output(f"grep -m 1 -A {3+NTERMS} 'Transition Moments Between{EXC_TYPE} Excited States' QCHEM.out | tail -n {NTERMS}", shell=True).decode().split() ).astype(float).reshape(NTERMS,6)[:,:5]
     for J,K,dx,dy,dz in tmp:
         DIP[int(J),int(K),:] = np.array([dx,dy,dz])
         DIP[int(K),int(J),:] = np.array([dx,dy,dz])
@@ -190,13 +210,13 @@ def get_Energies_Dipoles():
 
         ##### Look for dipoles from RPA #####
         DIP[0,0,:] = np.array( sp.check_output("grep -A 4 'Electron Dipole Moments of Ground State' QCHEM.out | tail -n 1", shell=True).decode().split()[1:] ).astype(float)
-        DIP[np.arange(1,NROOTS+1), np.arange(1,NROOTS+1),:] = np.array( sp.check_output(f"grep -m 2 -A {3+NROOTS} 'Electron Dipole Moments of Singlet Excited State' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,4)[:,1:]
-        DIP[0, np.arange(1,NROOTS+1),:] = np.array( sp.check_output(f"grep -m 2 -A {3+NROOTS} 'Transition Moments Between Ground and Singlet Excited States' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,6)[:,2:5]
-        DIP[np.arange(1,NROOTS+1),0,:] = np.array( sp.check_output(f"grep -m 2 -A {3+NROOTS} 'Transition Moments Between Ground and Singlet Excited States' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,6)[:,2:5]
+        DIP[np.arange(1,NROOTS+1), np.arange(1,NROOTS+1),:] = np.array( sp.check_output(f"grep -m 2 -A {3+NROOTS} 'Electron Dipole Moments of{EXC_TYPE} Excited State' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,4)[:,1:]
+        DIP[0, np.arange(1,NROOTS+1),:] = np.array( sp.check_output(f"grep -m 2 -A {3+NROOTS} 'Transition Moments Between Ground and{EXC_TYPE} Excited States' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,6)[:,2:5]
+        DIP[np.arange(1,NROOTS+1),0,:] = np.array( sp.check_output(f"grep -m 2 -A {3+NROOTS} 'Transition Moments Between Ground and{EXC_TYPE} Excited States' QCHEM.out | tail -n {NROOTS}", shell=True).decode().split() ).astype(float).reshape(NROOTS,6)[:,2:5]
 
         # Excited-to-excited needs more work to be done...need a loop
         NTERMS = NROOTS * (NROOTS-1) // 2 # Upper triangle without diagonal terms
-        tmp = np.array( sp.check_output(f"grep -m 2 -A {3+NTERMS} 'Transition Moments Between Singlet Excited States' QCHEM.out | tail -n {NTERMS}", shell=True).decode().split() ).astype(float).reshape(NTERMS,6)[:,:5]
+        tmp = np.array( sp.check_output(f"grep -m 2 -A {3+NTERMS} 'Transition Moments Between{EXC_TYPE} Excited States' QCHEM.out | tail -n {NTERMS}", shell=True).decode().split() ).astype(float).reshape(NTERMS,6)[:,:5]
         for J,K,dx,dy,dz in tmp:
             DIP[int(J),int(K),:] = np.array([dx,dy,dz])
             DIP[int(K),int(J),:] = np.array([dx,dy,dz])
@@ -210,6 +230,14 @@ def get_Energies_Dipoles():
         np.savetxt(f"{DATA_DIR}/DIPOLE_RPA_x.dat", DIP[:,:,0])
         plot_dipole(DIP,"RPA")
         plot_dipole_square(DIP,"RPA")
+    
+    if ( EXC_TYPE == "Triplet"):
+        print("I found TRIPLET states.")
+        print("Run SINGLET and TRIPLET states separately. I am not checking for this.")
+
+
+
+
 
 def get_ATOMS():
 

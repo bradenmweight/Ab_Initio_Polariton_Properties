@@ -20,7 +20,7 @@ def get_Globals():
     global DATA_DIR, MULTIWFN, NSTATES
     DATA_DIR = "PLOTS_DATA"
     MULTIWFN = "$HOME/Multiwfn_3.7_bin_Linux_noGUI/Multiwfn"
-    NExcStates = 20 # Number of excited states in TD-DFT calculation
+    NExcStates = 10 # Number of excited states in TD-DFT calculation
     
     # Do not change below here
     NSTATES    = NExcStates + 1
