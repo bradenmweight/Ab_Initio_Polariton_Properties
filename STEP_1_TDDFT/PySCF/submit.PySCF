@@ -14,4 +14,4 @@ export MKL_NUM_THREADS=${NP}
 
 #conda activate mypy_PySCF_Polariton
 
-python3 TDDFT.py
+python3 H_EL.py
