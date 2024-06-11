@@ -392,43 +392,129 @@ def get_H_JC_SubSpace_1(EAD, MU):
 
 
 @jit(nopython=True)
-def build_H( H, BRAs, NMOL, EAD, MU, DSE_AA ):
+def build_H_Aribitrary_Subspace( H, BRAs, NMOL, EAD, MU, DSE_AA ):
+    ELPH_FAC  =     WC_AU * A0_SCALED
+    DSE_FAC1  =     WC_AU * A0_SCALED**2
+    DSE_FAC2  = 2 * WC_AU * A0_SCALED**2
     for pol1 in range( len(BRAs) ):
         for pol2 in range( pol1, len(BRAs) ):
             bra = BRAs[pol1]
             ket = BRAs[pol2]
 
             ### H_EL AND H_PH ###
-            if ( (bra == ket).all() ):
+            #if ( (bra == ket).all() ):
+            if ( pol1 == pol2 ):
                 ### H_EL ###
                 for A in range( NMOL ):
                     H[pol1,pol2] += EAD[A,bra[A]]
                 ### H_PH ###
                 H[pol1,pol2] += WC_AU * bra[-1]
-                #print( "<", ",".join(map(str,bra)), "| H_EL + H_PH |", ",".join(map(str,ket)), ">" )
             
             ### H_EL-PH ###
             if ( abs(bra[-1] - ket[-1]) == 1 ): # Change in photon number by exactly 1
                 for A in range( NMOL ):
                     if ( (bra[:A] == ket[:A]).all() and (bra[A+1:-1] == ket[A+1:-1]).all() ):
-                        H[pol1,pol2] += WC_AU * A0_SCALED * MU[A,bra[A],ket[A]]
-                        #if ( A == 0 ):
-                            #print( "<", ",".join(map(str,bra)), "| H_EL-PH |", ",".join(map(str,ket)), ">" )
+                        H[pol1,pol2] += ELPH_FAC * MU[A,bra[A],ket[A]]
             
             ### H_DSE ###
+            #if ( pol1 != pol2 ): continue ####################################################################
             if ( abs(bra[-1] - ket[-1]) == 0 ): # No change in photon number
                 for A in range( NMOL ):
                     for B in range( A, NMOL ):
                         if (A == B):
                             if ( (bra[:A] == ket[:A]).all() and (bra[A+1:-1] == ket[A+1:-1]).all() ):
-                                H[pol1,pol2] += WC_AU * A0_SCALED**2 * DSE_AA[ A, bra[A], ket[A] ]
+                                H[pol1,pol2] += DSE_FAC1 * DSE_AA[ A, bra[A], ket[A] ]
                         elif ( A < B ):
                             if ( (bra[:A]     == ket[:A]    ).all() and \
                                  (bra[A+1:B]  == ket[A+1:B] ).all() and \
                                  (bra[B+1:-1] == ket[B+1:-1]).all() ) :
-                                    H[pol1,pol2] += 2 * WC_AU * A0_SCALED**2 * MU[ A, bra[A], ket[A] ] * MU[ B, bra[B], ket[B] ]
+                                    H[pol1,pol2] += DSE_FAC2 * MU[ A, bra[A], ket[A] ] * MU[ B, bra[B], ket[B] ]
             H[pol2,pol1] = H[pol1,pol2]
     
+    return H
+
+#@jit(nopython=True)
+def build_H_1SubSpace( H, BRAs, NMOL, EAD, MU, DSE_AA ):
+
+    ELPH_FAC  =     WC_AU * A0_SCALED
+    DSE_FAC1  =     WC_AU * A0_SCALED**2
+    DSE_FAC2  = 2 * WC_AU * A0_SCALED**2
+
+    EAD_GS    = sum([ EAD[A,0] for A in range(NMOL) ])
+    DSE_GS    = np.sum( DSE_AA[:,0,0] )
+    for A in range( NMOL ):
+        for B in range( NMOL ):
+            if ( A != B ):
+                DSE_GS += MU[A,0,0] * MU[B,0,0]
+    DSE_GS   *= DSE_FAC1 # DO NOT USE FAC2 HERE
+
+
+    ### H_EL ###
+    H[0,0]       += EAD_GS
+    dE            = EAD[:,1] - EAD[:,0]
+    DIAG          = ( np.arange(1,len(BRAs)-1), np.arange(1,len(BRAs)-1) ) # Only single excited matter elements
+    H[DIAG]      += EAD_GS + dE
+    H[-1,-1]     += EAD_GS
+
+    ### H_PH ###
+    H[-1,-1]     += WC_AU
+
+
+    ### H_EL-PH ###
+    # \mu_{gg}
+    H[0,NMOL+1]  += ELPH_FAC * sum(MU[:,0,0])
+    H[NMOL+1,0]  += ELPH_FAC * sum(MU[:,0,0])
+
+    # \mu_ge
+    H[1:-1,NMOL+1] += ELPH_FAC * MU[:,0,1]
+    H[NMOL+1,1:-1] += ELPH_FAC * MU[:,0,1]
+
+    # \mu_ee does not exist in single-excited subspace for H_el-ph
+
+
+    ### H_DSE ###
+    # Diagonal elements
+    H[0,0]   += DSE_GS
+    dDSE1     = DSE_AA[:,1,1] - DSE_AA[:,0,0] # Intra-molecular DSE
+    dDSE2     = (MU[:,1,1] - MU[:,0,0]) * (sum( MU[:,0,0] ) - MU[:,0,0] ) # Inter-molecular DSE
+    # dDSE2     = np.zeros( (NMOL) )
+    # for A in range( NMOL ): # Excited molecule
+    #     for C in range( NMOL ): # Ground state molecules
+    #         if ( A != C ):
+    #             dDSE2[A] += (MU[A,1,1] - MU[A,0,0]) * MU[C,0,0]
+    DIAG      = ( np.arange(1,len(BRAs)-1), np.arange(1,len(BRAs)-1) ) # Only single excited diagonal matter elements
+    H[DIAG]  += DSE_GS + DSE_FAC1 * dDSE1 + DSE_FAC1 * dDSE2
+    H[-1,-1] += DSE_GS
+
+    # Ground-to-excited DSE # TODO CHECK THIS.
+    for A in range( NMOL ): # Excited molecule
+        dDSE1  = DSE_AA[A,0,1] - DSE_AA[A,0,0]
+        dDSE2  = 0.0
+        for C in range( NMOL ): # Ground state molecules
+          if ( A != C ):
+              dDSE2 += (MU[A,0,1] - MU[A,0,0]) * MU[C,0,0]
+        H[0,1+A]  += DSE_GS + DSE_FAC1 * dDSE1 + DSE_FAC1 * dDSE2
+        H[1+A,0]  += H[0,1+A]
+        
+    # Excited molecule to excited photon # TODO CHECK THIS.
+    for A in range( NMOL ): # Excited molecule
+        H[1+A,NMOL+1] += H[1+A,0] # Excited photon states
+        H[NMOL+1,1+A] += H[0,1+A] # Excited photon states
+
+    # Excited-to-excited DSE # TODO CHECK THIS.
+    for A in range( NMOL ): # Excited molecule
+        for B in range( NMOL ): # Excited molecule
+            if ( A != B ):
+                dDSE1   = DSE_AA[A,0,1] - DSE_AA[A,0,0] + DSE_AA[B,0,1] - DSE_AA[B,0,0]
+                dDSE2   = 2 * MU[A,0,1] * MU[B,0,1]
+                for C in range( NMOL ): # Ground state molecules
+                    if ( A != C and B != C ):
+                        dDSE2 += (MU[A,0,1] - MU[A,0,0]) * MU[C,0,0]
+                        dDSE2 += (MU[B,1,0] - MU[B,0,0]) * MU[C,0,0]
+                H[1+A,1+B]  += DSE_GS + DSE_FAC1 * dDSE1 + DSE_FAC1 * dDSE2
+
+
+
     return H
 
 def filter_BRAs( ):
@@ -460,7 +546,7 @@ def filter_BRAs_manual( SUBSPACE, NMOL, SMAX, NUM_CONFIGS ):
         for bra in sorted(TMP):
             BRAs.append( bra )
             #print( bra )
-    print("Manual Time: %1.2f s" % (time() - T0))
+    print("\n\tTime to Build Configurations: %1.2f s" % (time() - T0))
     return np.array( BRAs )
 
 def get_BRAs():
@@ -472,7 +558,7 @@ def get_BRAs():
     NUM_CONFIGS = np.array( binomial_coeff(NMOL+1,np.arange(SMAX+1)) ).astype(int)
     
     MEM_SIZE = sum(NUM_CONFIGS)**2 * np.array( (1) ).itemsize * 10 ** -9 # Hamiltonian Size
-    print("\tMemory Requirements (Configurations): %1.3f GB" % (sum(NUM_CONFIGS) * np.array(1).itemsize * 10 ** -9) )
+    print("\n\tMemory Requirements (Configurations): %1.3f GB" % (sum(NUM_CONFIGS) * np.array(1).itemsize * 10 ** -9) )
     print("\tMemory Requirements (Hamiltonian): %1.3f GB" % (sum(NUM_CONFIGS)**2 * np.array(1).itemsize * 10 ** -9) )
     MEMORY = np.array(psutil.virtual_memory()[:]) * 10**-9 # Bytes --> GB
     #print( psutil.virtual_memory() )
@@ -495,15 +581,55 @@ def get_H_PF_SubSpace_N_SuperIndex(EAD, MU):
     BRAs = get_BRAs()
 
     NSPACE = len(BRAs)
-    print( "Numerical Dimension:", NSPACE )
     if ( SUBSPACE is not None and SUBSPACE > NMOL+1 ):
         print("SUBSPACE > NMOL+1. Not possible.")
         exit()
 
+    if ( SUBSPACE is None ):
+        print( "\tSubspace S%s (of S%s) Dimension: %1.0f (of 2^%1.0f)" % (NMOL+1, NMOL+1, NSPACE, NMOL) )
+    else:
+        print( "\tSubspace S%s (of S%s) Dimension: %1.0f (of 2^%1.0f)" % (SUBSPACE, NMOL+1, NSPACE, NMOL) )
     T0 = time()
     H = np.zeros( (NSPACE,NSPACE) )
-    H = build_H( H, BRAs, NMOL, EAD, MU, DSE_AA ) # Use jit compilation
-    print("Time to Build H_PF: %1.2f s" % (time() - T0))
+    H = build_H_Aribitrary_Subspace( H,BRAs, NMOL, EAD, MU, DSE_AA ) # Use jit compilation
+    print("\tTime to Build H_PF (1): %1.2f s" % (time() - T0))
+
+    T0 = time()
+    H1 = np.zeros( (NSPACE,NSPACE) )
+    H1 = build_H_1SubSpace( H1, BRAs, NMOL, EAD, MU, DSE_AA ) # Use jit compilation
+    print("\tTime to Build H_PF (2): %1.2f s" % (time() - T0))
+
+    # print("Check Diagonals:")
+    # D   = np.diag_indices( NSPACE )
+    # HD  = np.sort(H [D])
+    # H1D = np.sort(H1[D])
+    # print( "H  = H  ?", np.allclose( HD , HD  , atol=1e-8, rtol=1e-6) )
+    # print( "H1 = H1 ?", np.allclose( H1D, H1D , atol=1e-8, rtol=1e-6) )
+    # print( "H  = H1 ?", np.allclose( HD , H1D , atol=1e-8, rtol=1e-6) )
+    # print( HD  - HD[0] )
+    # print( H1D - HD[0] )
+    # print( HD - H1D )
+
+    # print("Check Zeroth Column:")
+    # HD  = np.sort(H [0,:])
+    # H1D = np.sort(H1[0,:])
+    # print( "H  = H  ?", np.allclose( HD , HD  , atol=1e-8, rtol=1e-6) )
+    # print( "H1 = H1 ?", np.allclose( H1D, H1D , atol=1e-8, rtol=1e-6) )
+    # print( "H  = H1 ?", np.allclose( HD , H1D , atol=1e-8, rtol=1e-6) )
+    # print( HD )
+    # print( H1D )
+    # print( (HD - H1D) )
+
+    print("Check Full Matrix:")
+    HD  = np.sort(H.flatten())
+    H1D = np.sort(H1.flatten())
+    print( "H  = H  ?", np.allclose( HD , HD  , atol=1e-8, rtol=1e-6) )
+    print( "H1 = H1 ?", np.allclose( H1D, H1D , atol=1e-8, rtol=1e-6) )
+    print( "H  = H1 ?", np.allclose( HD , H1D , atol=1e-8, rtol=1e-6) )
+    print( HD )
+    print( H1D )
+    print( (HD - H1D) )
+
     return H
 
 
@@ -569,10 +695,10 @@ def main():
         if ( NMOL <= 10 ):
             H    = get_H_PF( EAD, MU )
             SolvePlotandSave( H, EAD, MU, "PF_EXACT")
-            H    = get_H_PF_RWA( EAD, MU )
-            SolvePlotandSave( H, EAD, MU, "PF_RWA")
-            H    = get_H_PF_noDSE( EAD, MU )
-            SolvePlotandSave( H, EAD, MU, "PF_noDSE")
+            #H    = get_H_PF_RWA( EAD, MU )
+            #SolvePlotandSave( H, EAD, MU, "PF_RWA")
+            #H    = get_H_PF_noDSE( EAD, MU )
+            #SolvePlotandSave( H, EAD, MU, "PF_noDSE")
         else:
             print( "Too many molecules for exact solution. Skipping." )
 
