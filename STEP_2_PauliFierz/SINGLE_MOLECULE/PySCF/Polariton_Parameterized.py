@@ -41,9 +41,9 @@ def get_Pauli_Fierz_Hamiltonian( CAV_DICT ):
         H[1:-1,-1]  = np.sqrt( WC / 2 ) * LAMBDA * DIPOLE_AD[0,1:]
         DSE = 0.500 * LAMBDA**2 * DIPOLE_AD @ DIPOLE_AD
         for j in range( NEL ):
-            for k in range( j, NEL ):
+            for k in range( NEL ):
                 H[j,k] += DSE[j,k]
-                H[k,j] += DSE[j,k]
+        H[-1,-1] += DSE[0,0] # DSE for |g,1> = DSE for |g,0>
     else:
         print(f"Subspace not implemented: {SUBSPACE}")
         exit()
@@ -89,6 +89,16 @@ def get_Jaynes_Cummings_Hamiltonian( CAV_DICT ):
     
     return H
 
+def get_photon_number( U, CAV_DICT ):
+    NEL = CAV_DICT["NEL"]
+    NF  = CAV_DICT["NF"]
+    N_op = np.kron( np.eye(NEL), np.diag(np.arange(NF)) )
+    if ( CAV_DICT["SUBSPACE"].upper() == "FULL" ):
+        PHOT = np.einsum('aJ,ab,bJ->J', U.conj(), N_op, U )
+    elif ( CAV_DICT["SUBSPACE"].upper() == "TRUNCATED" ):
+        PHOT = U[-1,:]**2
+    return PHOT
+
 def solve_Polariton_Hamiltonian( CAV_DICT ):
 
     if ( len(CAV_DICT["DIPOLE_AD"].shape) == 3 ):
@@ -105,33 +115,27 @@ def solve_Polariton_Hamiltonian( CAV_DICT ):
         exit()
 
     E, U = np.linalg.eigh( H )
+    PHOT = get_photon_number( U, CAV_DICT )
     np.savetxt("%s/E_LAM_%1.4f_WC_%1.4f_EPOL_%s_HAM_%s_NEL_%1.0f_NF_%1.0f_SUBSPACE_%s.dat" % (DATA_DIR,CAV_DICT["LAMBDA"],CAV_DICT["WC"],"".join(map(str,CAV_DICT["EPOL"])), CAV_DICT["HAM"], CAV_DICT["NEL"], CAV_DICT["NF"], CAV_DICT["SUBSPACE"]), E, fmt="%1.8f")
+    np.savetxt("%s/PHOT_LAM_%1.4f_WC_%1.4f_EPOL_%s_HAM_%s_NEL_%1.0f_NF_%1.0f_SUBSPACE_%s.dat" % (DATA_DIR,CAV_DICT["LAMBDA"],CAV_DICT["WC"],"".join(map(str,CAV_DICT["EPOL"])), CAV_DICT["HAM"], CAV_DICT["NEL"], CAV_DICT["NF"], CAV_DICT["SUBSPACE"]), PHOT, fmt="%1.8f")
     np.save   ("%s/E_LAM_%1.4f_WC_%1.4f_EPOL_%s_HAM_%s_NEL_%1.0f_NF_%1.0f_SUBSPACE_%s.npy" % (DATA_DIR,CAV_DICT["LAMBDA"],CAV_DICT["WC"],"".join(map(str,CAV_DICT["EPOL"])), CAV_DICT["HAM"], CAV_DICT["NEL"], CAV_DICT["NF"], CAV_DICT["SUBSPACE"]), E)
+    
     return E, U
 
 if ( __name__ == "__main__"):
 
     do_HEL = False # Calculate Electronic Energies and Dipoles OR read from file if already done
 
-    if ( do_HEL == True ):
-        # Do electronic calculation to get the energies and dipoles (i.e., adiabatic basis)
-        atom       = [("Li", 0, 0, 0,), ("F", 2.0, 0, 0)]
-        basis      = '321g'
-        unit       = 'Angstrom'
-        functional = "wB97XD"
-        nstates    = 10 # Number of excited states
-        ENERGY_AD, DIPOLE_AD = H_EL.get_ELECTRONIC_ENERGY_DIPOLE( atom=atom, unit=unit, basis=basis, functional=functional, nstates=nstates)
-    else:
-        PATH_TO_DATA = "H_electronic_DATA/"
-        ENERGY_AD = np.loadtxt(f"{PATH_TO_DATA}/ENERGY.dat")
-        DIPOLE_AD = np.load(f"{PATH_TO_DATA}/DIPOLE.npy")
+    PATH_TO_DATA = "H_electronic_DATA/"
+    ENERGY_AD = np.loadtxt(f"{PATH_TO_DATA}/ENERGY.dat")
+    DIPOLE_AD = np.load(f"{PATH_TO_DATA}/DIPOLE.npy")
 
     # Contruct polaritonic Hamiltonian
     CAV_DICT = {}
     CAV_DICT["ENERGY_AD"] = ENERGY_AD
     CAV_DICT["DIPOLE_AD"] = DIPOLE_AD
     CAV_DICT["read_HEL"]  = True # True or False # Whether to do electronic calculation or read from file
-    CAV_DICT["NEL"]       = 2     # Number of electronic states (including ground state)
+    CAV_DICT["NEL"]       = 6     # Number of electronic states (including ground state)
     CAV_DICT["NF"]        = 2      # Fock States
     CAV_DICT["EPOL"]      = np.array([1,1,1]) # Cavity polarization vector
 
@@ -140,7 +144,7 @@ if ( __name__ == "__main__"):
     # Example 1: Excited State Splitting
     LAM_LIST = np.arange( 0,0.0105,0.0005 )
     HAM_LIST = ["JC", "PF"]
-    SUB_LIST = ["TRUNCATED", "FULL"]
+    SUB_LIST = ["FULL"] #["TRUNCATED", "FULL"]
     color_list = ["black", "red", "blue", "green"]
     line_list = ["-", "o", "-", "o"]
     ENERGY   = np.zeros( (len(HAM_LIST), len(SUB_LIST), len(LAM_LIST), 100) )
@@ -153,11 +157,11 @@ if ( __name__ == "__main__"):
                 CAV_DICT["HAM"]       = HAM
                 CAV_DICT["SUBSPACE"]  = SUB
                 CAV_DICT["LAMBDA"]    = LAM
-                CAV_DICT["WC"]        = CAV_DICT["ENERGY_AD"][1] - CAV_DICT["ENERGY_AD"][0]    # Cavity Frequency, a.u.
+                CAV_DICT["WC"]        = 3.35/27.2114    # Cavity Frequency, a.u.
                 E_TMP, _ = solve_Polariton_Hamiltonian( CAV_DICT )
                 ENERGY[HAMi,SUBi,LAMi,:len(E_TMP)] = E_TMP[:] * 27.2114 # a.u. to eV
-            for state in range( 3 ):
-                if ( state == 0 ):
+            for state in range( 1,10 ):
+                if ( state == 1 ):
                     plt.plot( LAM_LIST, ENERGY[HAMi,SUBi,:,state] - ENERGY[HAMi,SUBi,0,0], line_list[icount], c=color_list[icount], label="%s %s" % (HAM, SUB) )
                 else:
                     plt.plot( LAM_LIST, ENERGY[HAMi,SUBi,:,state] - ENERGY[HAMi,SUBi,0,0], line_list[icount], c=color_list[icount] )
@@ -166,15 +170,13 @@ if ( __name__ == "__main__"):
     plt.xlabel("Coupling Strength, $\lambda$ (a.u.)", fontsize=15)
     plt.ylabel("Energy (eV)", fontsize=15)
     plt.xlim(LAM_LIST[0],LAM_LIST[-1])
-    plt.ylim(3.07,3.175)
+    plt.ylim(2.8,3.8)
     plt.tight_layout()
     plt.savefig(f"{DATA_DIR}/Example1_ExcitedStateSplitting.jpg", dpi=300)
     plt.clf()
 
     # Example 1: Excited State Splitting
     LAM_LIST = np.arange( 0,0.205,0.005 )
-    HAM_LIST = ["JC", "PF"]
-    SUB_LIST = ["TRUNCATED", "FULL"]
     color_list = ["black", "red", "blue", "green"]
     line_list = ["-", "o", "-", "o"]
     ENERGY   = np.zeros( (len(HAM_LIST), len(SUB_LIST), len(LAM_LIST), 100) )
@@ -187,10 +189,10 @@ if ( __name__ == "__main__"):
                 CAV_DICT["HAM"]       = HAM
                 CAV_DICT["SUBSPACE"]  = SUB
                 CAV_DICT["LAMBDA"]    = LAM
-                CAV_DICT["WC"]        = CAV_DICT["ENERGY_AD"][1] - CAV_DICT["ENERGY_AD"][0]    # Cavity Frequency, a.u.
+                CAV_DICT["WC"]        = 3.35/27.2114    # Cavity Frequency, a.u.
                 E_TMP, _ = solve_Polariton_Hamiltonian( CAV_DICT )
                 ENERGY[HAMi,SUBi,LAMi,:len(E_TMP)] = E_TMP[:] * 27.2114 # a.u. to eV
-            for state in range( 3 ):
+            for state in range( len(ENERGY[HAMi,SUBi,0,:]) ):
                 if ( state == 0 ):
                     plt.plot( LAM_LIST, ENERGY[HAMi,SUBi,:,state] - ENERGY[HAMi,SUBi,0,0], line_list[icount], c=color_list[icount], label="%s %s" % (HAM, SUB) )
                 else:

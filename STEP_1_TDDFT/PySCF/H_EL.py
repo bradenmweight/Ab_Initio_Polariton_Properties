@@ -49,12 +49,12 @@ def get_ELECTRONIC_ENERGY_DIPOLE( atom="geometry.xyz", unit='Angstrom', \
         ENERGY[1:] = ENERGY[0] + td_obj.e # GS + dE
         return ENERGY
 
-    def get_Dipole( mol_obj, mf_obj, td_obj ):
-        DIP_MAT = np.zeros((td_obj.nstates+1, td_obj.nstates+1, 3)) # Include ground state
-        DIP_MAT[0,0,:]   = mf_obj.dip_moment()                       # Ground-to-Ground
-        DIP_MAT[0,1:,:]  = td_obj.transition_dipole(xy=td_obj.xy)    # Ground-to-Excited
-        DIP_MAT[1:,0,:]  = DIP_MAT[0,1:,:]                           # Ground-to-Excited
-        DIP_MAT[1:,1:,:] = get_STS_dipoles( mol_obj, mf_obj, td_obj )
+    def get_Dipole_Matrix( mol_obj, mf_obj, td_obj ):
+        DIP_MAT = np.zeros((td_obj.nstates+1, td_obj.nstates+1, 3))   # Include ground state
+        DIP_MAT[0,0,:]   = mf_obj.dip_moment()                        # Ground-to-Ground
+        DIP_MAT[0,1:,:]  = td_obj.transition_dipole(xy=td_obj.xy)     # Ground-to-Excited
+        DIP_MAT[1:,0,:]  = DIP_MAT[0,1:,:]                            # Ground-to-Excited
+        DIP_MAT[1:,1:,:] = get_STS_dipoles( mol_obj, mf_obj, td_obj ) # Excited-to-Excited
         return DIP_MAT    
 
 
@@ -74,7 +74,7 @@ def get_ELECTRONIC_ENERGY_DIPOLE( atom="geometry.xyz", unit='Angstrom', \
     td_obj.analyze()
 
     ENERGY  = get_Energy( mf_obj, td_obj )
-    DIP_MAT = get_Dipole( mol_obj, mf_obj, td_obj )
+    DIP_MAT = get_Dipole_Matrix( mol_obj, mf_obj, td_obj )
 
     DATA_DIR = "H_electronic_DATA"
     sp.call(f"mkdir -p {DATA_DIR}", shell=True)
@@ -88,9 +88,9 @@ def get_ELECTRONIC_ENERGY_DIPOLE( atom="geometry.xyz", unit='Angstrom', \
     return ENERGY, DIP_MAT
 
 if ( __name__ == '__main__' ):
-    atom       = [("Li", 0, 0, 0,), ("F", 2.0, 0, 0)]
-    basis      = '321g'
+    atom       = "geometry.xyz" # [("Li", 0, 0, 0,), ("F", 2.0, 0, 0)]
+    basis      = '6-31G*'
     unit       = 'Angstrom'
     functional = "wB97XD"
-    nstates    = 10 # Number of excited states
+    nstates    = 20 # Number of excited states
     ENERGY_AD, DIPOLE_AD = get_ELECTRONIC_ENERGY_DIPOLE( atom=atom, unit=unit, basis=basis, functional=functional, nstates=nstates)
