@@ -32,11 +32,11 @@ def get_Globals():
 
     # Automatically detect the number of excited states in the TD-DFT calculation
     # One can also use less than the total number of excited states by manually setting NExcStates
-    NExcStates = int( sp.check_output(f"grep 'Excited State' {OUT_FILE} | wc -l", shell=True) )
+    NExcStates = int( sp.check_output("grep 'Excited State' %s | tail -n 1 | awk '{print $3}'" % (OUT_FILE), shell=True).decode().split(":")[0] )
 
     # Do not change below here
     global DATA_DIR, NSTATES
-    DATA_DIR = "PLOTS_DATA"
+    DATA_DIR   = "PLOTS_DATA"
     NSTATES    = NExcStates + 1
     sp.call(f"mkdir {DATA_DIR}", shell=True)
 
