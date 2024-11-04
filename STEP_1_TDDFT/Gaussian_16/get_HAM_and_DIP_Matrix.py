@@ -67,11 +67,19 @@ def get_Energies_Dipoles():
     # Read in transition energies (in eV)
     E_TRANSITION = np.array([ permFile[j].split()[4] for j in range(NSTATES-1) ]).astype(float) # These are in eV
 
-    # Get ground state energy from SCF cycle
-    sp.call(f" grep 'SCF Done' {OUT_FILE} > GS_Total_Energy.dat ",shell=True) # FOR HF/DFT etc.
-    #sp.call(" grep 'Wavefunction amplitudes converged' {OUT_FILE} > GS_Total_Energy.dat ",shell=True) # FOR CCSD/MP2/etc.
-    GS_Energy = float(open("GS_Total_Energy.dat","r").readlines()[0].split()[4]) * 27.2114 # Convert to eV
-    sp.call(" rm GS_Total_Energy.dat ",shell=True)
+    ### Get ground state energy from SCF cycle
+    
+    # sp.call(f" grep 'SCF Done' {OUT_FILE} > GS_Total_Energy.dat ",shell=True) # FOR HF/DFT etc.
+    # #sp.call(" grep 'Wavefunction amplitudes converged' {OUT_FILE} > GS_Total_Energy.dat ",shell=True) # FOR CCSD/MP2/etc.
+    # GS_Energy = float(open("GS_Total_Energy.dat","r").readlines()[0].split()[4]) * 27.2114 # Convert to eV
+    # sp.call(" rm GS_Total_Energy.dat ",shell=True)
+
+    GS_Energy = 0.0
+    with open(OUT_FILE,"r") as f:
+        lines = f.readlines()
+        for count,line in enumerate(lines):
+            if ( "SCF Done" in line ):
+                GS_Energy = float( line.split()[4] ) * 27.2114 # to eV
 
     E_ADIABATIC[0] = GS_Energy # Shift states by total energy of ground state at this R
     for j in range( NSTATES-1 ):
