@@ -2,6 +2,7 @@ import numpy as np
 import subprocess as sp
 from matplotlib import pyplot as plt
 import os
+import glob
 
 # Created by Braden M. Weight, 2022
 
@@ -20,14 +21,22 @@ $ formchk geometry.chk geometry.fchk
 """
 
 def get_Globals():
-    global DATA_DIR, MULTIWFN, NSTATES, OUT_FILE, FCHK_FILE
-    OUT_FILE = "geometry_test.out"
-    FCHK_FILE = "geometry_test.fchk"
-    DATA_DIR = "PLOTS_DATA"
-    MULTIWFN = "$HOME/Multiwfn_3.7_bin_Linux_noGUI/Multiwfn"
-    NExcStates = 3 # Number of excited states in TD-DFT calculation (or less also works!) 
+    global MULTIWFN
+    MULTIWFN   = "$HOME/Multiwfn_3.7_bin_Linux_noGUI/Multiwfn"
     
+    # Automatically detect .out and .fchk files
+    # If naming convention is weird, then manually set these variables as shown in the comments below
+    global OUT_FILE, FCHK_FILE
+    OUT_FILE  = glob.glob("*.out")[0]  # "geometry_test.out"
+    FCHK_FILE = glob.glob("*.fchk")[0] # "geometry_test.fchk"
+
+    # Automatically detect the number of excited states in the TD-DFT calculation
+    # One can also use less than the total number of excited states by manually setting NExcStates
+    NExcStates = int( sp.check_output(f"grep 'Excited State' {OUT_FILE} | wc -l", shell=True) )
+
     # Do not change below here
+    global DATA_DIR, NSTATES
+    DATA_DIR = "PLOTS_DATA"
     NSTATES    = NExcStates + 1
     sp.call(f"mkdir {DATA_DIR}", shell=True)
 
