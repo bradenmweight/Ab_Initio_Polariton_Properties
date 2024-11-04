@@ -14,13 +14,18 @@ Dipoles are computed at TDA level regardless of whether Gaussian did TDA or RPA.
 Example Gaussian Input:
     #p B3LYP/6-31G*
     #p TD=(singlets,nstates=50) IOp(6/8=3) IOp(9/40=4)
+
+After TD calculation, formchk the .chk file to get the .fchk file
+$ formchk geometry.chk geometry.fchk
 """
 
 def get_Globals():
-    global DATA_DIR, MULTIWFN, NSTATES
+    global DATA_DIR, MULTIWFN, NSTATES, OUT_FILE, FCHK_FILE
+    OUT_FILE = "geometry_test.out"
+    FCHK_FILE = "geometry_test.fchk"
     DATA_DIR = "PLOTS_DATA"
     MULTIWFN = "$HOME/Multiwfn_3.7_bin_Linux_noGUI/Multiwfn"
-    NExcStates = 10 # Number of excited states in TD-DFT calculation
+    NExcStates = 3 # Number of excited states in TD-DFT calculation (or less also works!) 
     
     # Do not change below here
     NSTATES    = NExcStates + 1
@@ -28,15 +33,15 @@ def get_Globals():
 
 def run_Multiwfn():
     # Makes permanent dipoles
-    STRING = f'{MULTIWFN} << EOF\ngeometry.fchk\n18\n5\ngeometry.out\n2\nEOF'
+    STRING = f'{MULTIWFN} << EOF\n{FCHK_FILE}\n18\n5\n{OUT_FILE}\n2\nEOF'
     sp.call(STRING,shell=True)
 
     # Makes transition dipoles
-    STRING = f'{MULTIWFN} << EOF\ngeometry.fchk\n18\n5\ngeometry.out\n4\nEOF'
+    STRING = f'{MULTIWFN} << EOF\n{FCHK_FILE}\n18\n5\n{OUT_FILE}\n4\nEOF'
     sp.call(STRING,shell=True)
 
 def get_Energies_Dipoles():
-    # Need to run Multiwfn ( geometry.fchk 18, 5, geometry.out 2 ) ( 18, 5, geometry.out, 4 )
+    # Need to run Multiwfn ( *.fchk 18, 5, *.out 2 ) ( 18, 5, *.out, 4 )
     run_Multiwfn()
 
     DIP_MAT     = np.zeros(( NSTATES, NSTATES, 3 )) # All dipole matrix elements
@@ -54,8 +59,8 @@ def get_Energies_Dipoles():
     E_TRANSITION = np.array([ permFile[j].split()[4] for j in range(NSTATES-1) ]).astype(float) # These are in eV
 
     # Get ground state energy from SCF cycle
-    sp.call(" grep 'SCF Done' geometry.out > GS_Total_Energy.dat ",shell=True) # FOR HF/DFT etc.
-    #sp.call(" grep 'Wavefunction amplitudes converged' geometry.out > GS_Total_Energy.dat ",shell=True) # FOR CCSD/MP2/etc.
+    sp.call(f" grep 'SCF Done' {OUT_FILE} > GS_Total_Energy.dat ",shell=True) # FOR HF/DFT etc.
+    #sp.call(" grep 'Wavefunction amplitudes converged' {OUT_FILE} > GS_Total_Energy.dat ",shell=True) # FOR CCSD/MP2/etc.
     GS_Energy = float(open("GS_Total_Energy.dat","r").readlines()[0].split()[4]) * 27.2114 # Convert to eV
     sp.call(" rm GS_Total_Energy.dat ",shell=True)
 
