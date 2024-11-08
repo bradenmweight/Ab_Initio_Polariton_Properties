@@ -2,7 +2,7 @@ import numpy as np
 import subprocess as sp
 from matplotlib import pyplot as plt
 import os
-import glob
+from glob import glob
 
 # Created by Braden M. Weight, 2022
 
@@ -20,25 +20,10 @@ After TD calculation, formchk the .chk file to get the .fchk file
 $ formchk geometry.chk geometry.fchk
 """
 
-def get_Globals():
+def get_user_Globals():
     global MULTIWFN
     MULTIWFN   = "$HOME/Multiwfn_3.7_bin_Linux_noGUI/Multiwfn"
     
-    # Automatically detect .out and .fchk files
-    # If naming convention is weird, then manually set these variables as shown in the comments below
-    global OUT_FILE, FCHK_FILE
-    OUT_FILE  = glob.glob("*.out")[0]  # "geometry_test.out"
-    FCHK_FILE = glob.glob("*.fchk")[0] # "geometry_test.fchk"
-
-    # Automatically detect the number of excited states in the TD-DFT calculation
-    # One can also use less than the total number of excited states by manually setting NExcStates
-    NExcStates = int( sp.check_output("grep 'Excited State' %s | tail -n 1 | awk '{print $3}'" % (OUT_FILE), shell=True).decode().split(":")[0] )
-
-    # Do not change below here
-    global DATA_DIR, NSTATES
-    DATA_DIR   = "PLOTS_DATA"
-    NSTATES    = NExcStates + 1
-    sp.call(f"mkdir {DATA_DIR}", shell=True)
 
 def run_Multiwfn():
     # Makes permanent dipoles
@@ -131,6 +116,33 @@ def get_Energies_Dipoles():
     np.savetxt(f"{DATA_DIR}/ADIABATIC_ENERGIES_RPA.dat", E_ADIABATIC/27.2114)
     np.savetxt(f"{DATA_DIR}/ADIABATIC_ENERGIES_RPA_TRANSITION.dat", (E_ADIABATIC-E_ADIABATIC[0])/27.2114)
 
+def get_non_user_Globals():
+
+    # Automatically detect .out and .fchk files
+    # If naming convention is weird, then manually set these variables as shown in the comments below
+    global OUT_FILE, FCHK_FILE
+    OUT_FILE  = glob("*.log")[0] if len(glob("*.log")) > 0 else glob("*.out")[0] # "geometry_test.out" from Gaussian
+    FCHK_FILE = glob("*.fch*")[0] # "geometry_test.fchk" from formchk geometry.chk geometry.fchk
+
+
+    # Automatically detect the number of excited states in the TD-DFT calculation
+    # One can also use less than the total number of excited states by manually setting NExcStates
+    #NExcStates = int( sp.check_output("grep 'Excited State' %s | tail -n 1 | awk '{print $3}'" % (OUT_FILE), shell=True).decode().split(":")[0] )
+
+    NExcStates = -2
+    with open(OUT_FILE,"r") as f:
+        lines = f.readlines()
+        for count,line in enumerate(lines):
+            if ( "Excited State" in line ):
+                NExcStates = int( line.split()[2].strip(":") )
+
+    # Do not change below here
+    global DATA_DIR, NSTATES
+    DATA_DIR   = "PLOTS_DATA"
+    NSTATES    = NExcStates + 1
+    sp.call(f"mkdir {DATA_DIR}", shell=True)
+
 if ( __name__ == "__main__" ):
-    get_Globals()
+    get_user_Globals()
+    get_non_user_Globals()
     get_Energies_Dipoles()
