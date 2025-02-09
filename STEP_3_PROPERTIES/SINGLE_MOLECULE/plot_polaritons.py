@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib as mpl
-import subprocess as sp
+# import subprocess as sp
 import os
 
 def get_globals():
@@ -10,13 +10,16 @@ def get_globals():
     global DATA_DIR, NPOL, NA0, NWC, EMAX
 
     ##### MAIN USER INPUT SECTION #####
-    NM        = 50                  # Number of Electronic States (including ground state)
+    NM        = 5                   # Number of Electronic States (including ground state)
     NF        = 5                   # Number of Fock Basis States
-    EMAX      = 15.0
-    EVEC_INTS = np.array([ 0,0,1 ]) # Cavity Polarization Vector (input as integers without normalizing)
+    EMAX      = 8.0                 # Maximum Energy for plot (eV)
+    EVEC_INTS = np.array([ 1,1,1 ]) # Cavity Polarization Vector (input as integers without normalizing)
     
-    A0_LIST = np.arange( 0.0, 1.0+0.025, 0.025 ) # a.u.
-    WC_LIST = np.arange( 0.0, 20+1.0, 1.0 )
+    A0MIN = 0.0
+    A0MAX = 0.2
+    dA0   = 0.001
+    A0_LIST = np.arange( A0MIN, A0MAX+dA0, dA0 )
+    WC_LIST = np.array([3.154]) # np.arange( 0.0, 20+1.0, 1.0 )
     ##### END USER INPUT SECTION  #####
 
 
@@ -30,7 +33,9 @@ def get_globals():
     EVEC_OUT = "_".join(map(str,EVEC_INTS))
 
     DATA_DIR = "PLOTS_DATA"
-    sp.call(f"mkdir -p {DATA_DIR}", shell=True)
+    # sp.call(f"mkdir -p {DATA_DIR}", shell=True) # Not good for Windows OS
+    try: os.mkdir("PLOTS_DATA")
+    except FileExistsError: pass
 
 def get_energies():
 
@@ -41,7 +46,7 @@ def get_energies():
             A0 = round( A0, 5 )
             WC = round( WC, 5 )
             EPOL[:, A0IND, WCIND]  = np.loadtxt(f"data_PF/E_{EVEC_OUT}_A0_{A0}_WC_{WC}_NF_{NF}_NM_{NM}.dat")
-    np.save(f"{DATA_DIR}/EPOL.dat.npy", EPOL)
+    # np.save(f"{DATA_DIR}/EPOL.dat.npy", EPOL)
     return EPOL
 
 def get_average_photon_number():
@@ -80,7 +85,7 @@ def plot_A0SCAN_WCFIXED( EPOL, PHOT ):
         WC = round( WC, 5 )
         print(f"Plotting WC = {WC} eV")
         VMAX = np.max(PHOT[:5,:,WCIND])
-        for state in range( 50 ):
+        for state in range( NPOL ):
             plt.scatter( A0_LIST, EPOL[state,:,WCIND] - EZERO, s=25, cmap=cmap, c=PHOT[state,:,WCIND], vmin=0.0, vmax=VMAX )
         
         plt.colorbar(pad=0.01,label="Average Photon Number")
@@ -101,7 +106,7 @@ def plot_WCSCAN_A0FIXED( EPOL, PHOT ):
         A0 = round( A0, 5 )
         VMAX = np.max(PHOT[:5,A0IND,:])
         print(f"Plotting A0 = {A0} eV")
-        for state in range( 50 ):
+        for state in range( NPOL ):
             plt.scatter( WC_LIST, EPOL[state,A0IND,:] - EZERO, s=25, cmap=cmap, c=PHOT[state,A0IND,:], vmin=0.0, vmax=VMAX )
         
         plt.colorbar(pad=0.01,label="Average Photon Number")
@@ -117,7 +122,7 @@ def main():
     EPOL = get_energies()
     PHOT = get_average_photon_number()
     plot_A0SCAN_WCFIXED( EPOL, PHOT )
-    plot_WCSCAN_A0FIXED( EPOL, PHOT )
+    #plot_WCSCAN_A0FIXED( EPOL, PHOT )
     
 
 
