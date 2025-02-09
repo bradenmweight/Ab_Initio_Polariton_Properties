@@ -11,12 +11,12 @@ def get_globals():
 
     ##### MAIN USER INPUT SECTION #####
     NM        = 5                   # Number of Electronic States (including ground state)
-    NF        = 5                   # Number of Fock Basis States
-    EMAX      = 8.0                 # Maximum Energy for plot (eV)
+    NF        = 2                   # Number of Fock Basis States
+    EMAX      = 4.5                 # Maximum Energy for plot (eV)
     EVEC_INTS = np.array([ 1,1,1 ]) # Cavity Polarization Vector (input as integers without normalizing)
     
     A0MIN = 0.0
-    A0MAX = 0.2
+    A0MAX = 0.1
     dA0   = 0.001
     A0_LIST = np.arange( A0MIN, A0MAX+dA0, dA0 )
     WC_LIST = np.array([3.154]) # np.arange( 0.0, 20+1.0, 1.0 )
@@ -81,10 +81,12 @@ def plot_A0SCAN_WCFIXED( EPOL, PHOT ):
 
     EZERO = EPOL[0,0,0]
     cmap=mpl.colors.LinearSegmentedColormap.from_list('rg',[ "red", "darkred", "black", "darkgreen", "palegreen" ], N=256)
+    #cmap=mpl.colors.LinearSegmentedColormap.from_list('rg',[ "black", "grey", "red", "orange", "yellow" ], N=256)
     for WCIND, WC in enumerate( WC_LIST ):
         WC = round( WC, 5 )
         print(f"Plotting WC = {WC} eV")
-        VMAX = np.max(PHOT[:5,:,WCIND])
+        mask = (EPOL[:,:,WCIND] - EZERO) < EMAX
+        VMAX = np.max(PHOT[mask,WCIND])
         for state in range( NPOL ):
             plt.scatter( A0_LIST, EPOL[state,:,WCIND] - EZERO, s=25, cmap=cmap, c=PHOT[state,:,WCIND], vmin=0.0, vmax=VMAX )
         
